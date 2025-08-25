@@ -1,7 +1,7 @@
 {
   "name": "whatsapp-bot-web",
   "version": "0.1.0",
-  "homepage": "https://Daniel-dadu.github.io/WhatsAppBotWeb",
+  "homepage": "https://Daniel-dadu.github.io/whatsapp-bot-web",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
