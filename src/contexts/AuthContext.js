@@ -56,16 +56,41 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (username, password) => {
-    // Simple validation - in a real app this would connect to backend
-    if (username && password) {
-      const today = new Date().toISOString();
-      localStorage.setItem('lastLogin', today);
-      setIsAuthenticated(true);
-      // Cargar contactos automáticamente al hacer login
-      await loadRecentContacts();
-      return true;
+    try {
+      const loginEndpoint = process.env.REACT_APP_LOGIN_ENDPOINT;
+      
+      // Validating credentials in backend
+      const response = await fetch(loginEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          password
+        })
+      });
+
+      if (response.ok) {
+        if (response.success !== false) {
+          const today = new Date().toISOString();
+          localStorage.setItem('lastLogin', today);
+          setIsAuthenticated(true);
+          // Cargar contactos automáticamente al hacer login
+          await loadRecentContacts();
+          return true;
+        } else {
+          console.error('Error en login:', response.error || 'Credenciales inválidas');
+          return false;
+        }
+      } else {
+        console.error('Error en login:', response.status, response.statusText);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error al conectar con el servidor:', error);
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
