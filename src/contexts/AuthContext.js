@@ -58,6 +58,11 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       const loginEndpoint = process.env.REACT_APP_LOGIN_ENDPOINT;
+
+      if (!loginEndpoint) {
+        console.error('REACT_APP_LOGIN_ENDPOINT no está definida');
+        return false;
+      }
       
       // Validating credentials in backend
       const response = await fetch(loginEndpoint, {
