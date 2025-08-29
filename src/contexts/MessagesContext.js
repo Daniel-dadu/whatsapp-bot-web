@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { 
   getCachedConversationMessages, 
   pollConversationUpdates, 
@@ -33,7 +33,7 @@ export const MessagesProvider = ({ children }) => {
    * @param {string} conversationId - ID de la conversación
    * @param {boolean} forceRefresh - Forzar recarga desde backend
    */
-  const loadConversationMessages = async (conversationId, forceRefresh = false) => {
+  const loadConversationMessages = useCallback(async (conversationId, forceRefresh = false) => {
     if (!conversationId) return;
 
     console.log(`📱 Cargando mensajes para conversación: ${conversationId}`);
@@ -94,32 +94,13 @@ export const MessagesProvider = ({ children }) => {
       // Quitar indicador de carga
       setLoadingMessages(prev => ({ ...prev, [conversationId]: false }));
     }
-  };
-
-  /**
-   * Establece la conversación activa y maneja el polling
-   * @param {string} conversationId - ID de la conversación activa
-   */
-  const setActiveConversation = async (conversationId) => {
-    console.log(`🎯 Estableciendo conversación activa: ${conversationId}`);
-    
-    // Actualizar conversación activa
-    setActiveConversationId(conversationId);
-    
-    // Cargar mensajes si no los tenemos y no han fallado previamente
-    if (conversationId && !conversationMessages[conversationId] && !errorMessages[conversationId]) {
-      await loadConversationMessages(conversationId);
-    }
-    
-    // Reiniciar polling para la nueva conversación
-    setupPolling(conversationId);
-  };
+  }, []); // Sin dependencias ya que usa solo setters estables
 
   /**
    * Configura el sistema de polling para la conversación activa
    * @param {string} conversationId - ID de la conversación para hacer polling
    */
-  const setupPolling = (conversationId) => {
+  const setupPolling = useCallback((conversationId) => {
     // Limpiar polling anterior
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
@@ -138,14 +119,33 @@ export const MessagesProvider = ({ children }) => {
     pollingIntervalRef.current = setInterval(() => {
       pollConversationUpdates(conversationId);
     }, POLLING_INTERVAL);
-  };
+  }, []); // Sin dependencias ya que usa refs y constantes
+  
+  /**
+   * Establece la conversación activa y maneja el polling
+   * @param {string} conversationId - ID de la conversación activa
+   */
+  const setActiveConversation = useCallback(async (conversationId) => {
+    console.log(`🎯 Estableciendo conversación activa: ${conversationId}`);
+    
+    // Actualizar conversación activa
+    setActiveConversationId(conversationId);
+    
+    // Cargar mensajes si no los tenemos y no han fallado previamente
+    if (conversationId && !conversationMessages[conversationId] && !errorMessages[conversationId]) {
+      await loadConversationMessages(conversationId);
+    }
+    
+    // Reiniciar polling para la nueva conversación
+    setupPolling(conversationId);
+  }, [conversationMessages, errorMessages, loadConversationMessages, setupPolling]); // Incluir dependencias necesarias
 
   /**
    * Cambia el modo de conversación (bot/agente)
    * @param {string} conversationId - ID de la conversación
    * @param {string} mode - Nuevo modo ('bot' o 'agente')
    */
-  const setConversationMode = (conversationId, mode) => {
+  const setConversationMode = useCallback((conversationId, mode) => {
     if (!conversationId || (mode !== 'bot' && mode !== 'agente')) {
       console.error('❌ Parámetros inválidos para setConversationMode:', { conversationId, mode });
       return;
@@ -157,21 +157,21 @@ export const MessagesProvider = ({ children }) => {
       ...prev,
       [conversationId]: mode
     }));
-  };
+  }, []); // Sin dependencias ya que solo usa setters estables
 
   /**
    * Obtiene el modo actual de una conversación
    * @param {string} conversationId - ID de la conversación
    * @returns {string} - 'bot' o 'agente'
    */
-  const getConversationMode = (conversationId) => {
+  const getConversationMode = useCallback((conversationId) => {
     return conversationModes[conversationId] || 'bot'; // Por defecto en modo bot
-  };
+  }, [conversationModes]); // Depende del estado de modos
 
   /**
    * Limpia todos los datos al hacer logout
    */
-  const clearAllMessages = () => {
+  const clearAllMessages = useCallback(() => {
     console.log('🧹 Limpiando todos los mensajes y caché');
     
     // Detener polling
@@ -189,7 +189,7 @@ export const MessagesProvider = ({ children }) => {
     
     // Limpiar caché del servicio
     clearConversationsCache();
-  };
+  }, []); // Sin dependencias ya que usa refs y setters estables
 
   /**
    * Obtiene estadísticas de caché para debugging
