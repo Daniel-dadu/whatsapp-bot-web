@@ -1,5 +1,35 @@
 import leadsData from '../testData/leads.json';
 
+// Función utilitaria para obtener headers de autenticación
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('access_token');
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+};
+
+// Función para manejar respuestas y detectar tokens expirados
+const handleAuthResponse = async (response) => {
+  if (response.status === 401) {
+    // Token expirado o inválido, limpiar datos de autenticación
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('token_type');
+    localStorage.removeItem('expires_in');
+    
+    // Recargar la página para forzar re-login
+    window.location.reload();
+    return null;
+  }
+  
+  return response;
+};
+
 // Función para obtener contactos recientes desde el endpoint real
 export const getRecentContacts = async () => {
   try {
@@ -14,10 +44,11 @@ export const getRecentContacts = async () => {
     
     const response = await fetch(endpoint, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
+      headers: getAuthHeaders()
     });
+
+    const authResponse = await handleAuthResponse(response);
+    if (!authResponse) return { success: false, error: 'Token expirado' };
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -145,13 +176,14 @@ export const getConversation = async (waId) => {
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         wa_id: waId
       })
     });
+
+    const authResponse = await handleAuthResponse(response);
+    if (!authResponse) return { success: false, error: 'Token expirado' };
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -184,14 +216,15 @@ export const sendAgentMessage = async (waId, message) => {
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         wa_id: waId,
         message: message
       })
     });
+
+    const authResponse = await handleAuthResponse(response);
+    if (!authResponse) return { success: false, error: 'Token expirado' };
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -224,14 +257,15 @@ export const changeConversationMode = async (waId, mode) => {
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         wa_id: waId,
         mode: mode
       })
     });
+
+    const authResponse = await handleAuthResponse(response);
+    if (!authResponse) return { success: false, error: 'Token expirado' };
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

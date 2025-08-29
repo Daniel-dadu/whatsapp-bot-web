@@ -35,18 +35,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Check if user has a valid login from today
+  // Check if user has a valid JWT token
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const lastLogin = localStorage.getItem('lastLogin');
-      if (lastLogin) {
-        const today = new Date().toDateString();
-        const loginDate = new Date(lastLogin).toDateString();
-        
-        if (loginDate === today) {
-          setIsAuthenticated(true);
-          // Cargar contactos automáticamente al detectar sesión válida
-          await loadRecentContacts();
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        try {
+          // Verificar si el token no ha expirado
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const now = Math.floor(Date.now() / 1000);
+          
+          if (payload.exp && payload.exp > now) {
+            setIsAuthenticated(true);
+            // Cargar contactos automáticamente al detectar sesión válida
+            await loadRecentContacts();
+          } else {
+            // Token expirado, limpiar
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('token_type');
+            localStorage.removeItem('expires_in');
+          }
+        } catch (error) {
+          // Token inválido, limpiar
+          console.error('Token inválido:', error);
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('token_type');
+          localStorage.removeItem('expires_in');
         }
       }
       setLoading(false);
@@ -77,19 +91,29 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.ok) {
-        if (response.success !== false) {
-          const today = new Date().toISOString();
-          localStorage.setItem('lastLogin', today);
+        const data = await response.json();
+        
+        if (data.access_token) {
+          // Guardar token JWT y información relacionada
+          localStorage.setItem('access_token', data.access_token);
+          localStorage.setItem('token_type', data.token_type || 'Bearer');
+          if (data.expires_in) {
+            localStorage.setItem('expires_in', data.expires_in);
+          }
+          
+          console.log('✅ Login exitoso, token JWT guardado');
           setIsAuthenticated(true);
+          
           // Cargar contactos automáticamente al hacer login
           await loadRecentContacts();
           return true;
         } else {
-          console.error('Error en login:', response.error || 'Credenciales inválidas');
+          console.error('Error en login: No se recibió access_token');
           return false;
         }
       } else {
-        console.error('Error en login:', response.status, response.statusText);
+        const errorData = await response.text().catch(() => 'Error desconocido');
+        console.error('Error en login:', response.status, errorData);
         return false;
       }
     } catch (error) {
@@ -99,9 +123,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Limpiar todos los datos de autenticación
     localStorage.removeItem('lastLogin');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('token_type');
+    localStorage.removeItem('expires_in');
+    
     setIsAuthenticated(false);
     setContacts([]); // Limpiar contactos al hacer logout
+    
+    console.log('🚪 Logout realizado, tokens JWT eliminados');
     
     // NOTA: Los mensajes se limpiarán desde el ChatApp cuando detecte el logout
     // No podemos importar useMessages aquí para evitar dependencias circulares

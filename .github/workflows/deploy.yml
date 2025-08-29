@@ -33,8 +33,12 @@ jobs:
     - name: Build
       run: npm run build
       env:
-        REACT_APP_LOGIN_ENDPOINT: https://web-api-ai-bot-ghh6bva7hdcjawea.centralus-01.azurewebsites.net/api/login?code=${{ secrets.AZURE_FUNCTION_KEY }}
-        
+        REACT_APP_LOGIN_ENDPOINT: https://web-api-ai-bot-ghh6bva7hdcjawea.centralus-01.azurewebsites.net/api/login?code=${{ secrets.LOGIN_FUNCTION_KEY }}
+        REACT_APP_CONVERSATION_MODE_ENDPOINT: https://web-api-ai-bot-ghh6bva7hdcjawea.centralus-01.azurewebsites.net/api/conversation-mode?code=${{ secrets.CONVERSATION_MODE_FUNCTION_KEY }}
+        REACT_APP_GET_CONVERSATION_ENDPOINT: https://web-api-ai-bot-ghh6bva7hdcjawea.centralus-01.azurewebsites.net/api/get-conversation?code=${{ secrets.GET_CONVERSATION_FUNCTION_KEY }}
+        REACT_APP_GET_RECENT_LEADS_ENDPOINT: https://web-api-ai-bot-ghh6bva7hdcjawea.centralus-01.azurewebsites.net/api/conversations/recent?code=${{ secrets.GET_RECENT_LEADS_FUNCTION_KEY }}
+        REACT_APP_SEND_AGENT_MESSAGE_ENDPOINT: https://web-api-ai-bot-ghh6bva7hdcjawea.centralus-01.azurewebsites.net/api/send-agent-message?code=${{ secrets.SEND_AGENT_MESSAGE_FUNCTION_KEY }}
+
     - name: Setup Pages
       uses: actions/configure-pages@v4
       
