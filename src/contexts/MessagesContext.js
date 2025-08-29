@@ -5,6 +5,7 @@ import {
   clearConversationsCache,
   getCacheStats 
 } from '../services/messagesService';
+import { changeConversationMode } from '../services/apiService';
 
 const MessagesContext = createContext();
 
@@ -145,18 +146,37 @@ export const MessagesProvider = ({ children }) => {
    * @param {string} conversationId - ID de la conversación
    * @param {string} mode - Nuevo modo ('bot' o 'agente')
    */
-  const setConversationMode = useCallback((conversationId, mode) => {
+  const setConversationMode = useCallback(async (conversationId, mode) => {
     if (!conversationId || (mode !== 'bot' && mode !== 'agente')) {
       console.error('❌ Parámetros inválidos para setConversationMode:', { conversationId, mode });
-      return;
+      return { success: false, error: 'Parámetros inválidos' };
     }
     
     console.log(`🔄 Cambiando modo de conversación ${conversationId} a: ${mode}`);
     
-    setConversationModes(prev => ({
-      ...prev,
-      [conversationId]: mode
-    }));
+    // Extraer wa_id del conversationId (remover prefijo 'conv_' si existe)
+    const waId = conversationId.replace('conv_', '');
+    
+    try {
+      const result = await changeConversationMode(waId, mode);
+      
+      if (result.success) {
+        // Solo actualizar el estado local si la llamada al backend fue exitosa
+        setConversationModes(prev => ({
+          ...prev,
+          [conversationId]: mode
+        }));
+        
+        console.log(`✅ Modo cambiado exitosamente a: ${mode}`);
+        return { success: true, data: result.data };
+      } else {
+        console.error(`❌ Error al cambiar modo: ${result.error}`);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error(`❌ Error inesperado al cambiar modo:`, error);
+      return { success: false, error: 'Error inesperado al cambiar modo' };
+    }
   }, []); // Sin dependencias ya que solo usa setters estables
 
   /**

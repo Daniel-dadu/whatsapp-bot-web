@@ -1,4 +1,5 @@
 import messagesData from '../testData/messages.json';
+import { getConversation } from './apiService';
 
 // Cache en memoria para almacenar conversaciones ya cargadas
 // En producción, esto podría ser reemplazado por un sistema de cache más sofisticado
@@ -14,21 +15,57 @@ let failedConversationsCache = new Set();
  */
 
 /**
- * Simula una llamada al backend para obtener los mensajes de una conversación específica
+ * Obtiene los mensajes de una conversación específica desde el endpoint real
  * @param {string} conversationId - ID de la conversación
  * @returns {Promise} - Promesa que resuelve con los mensajes de la conversación
  */
 export const getConversationMessages = async (conversationId) => {
   try {
-    console.log(`📡 Simulando request al backend para conversación: ${conversationId}`);
+    console.log(`📡 Obteniendo mensajes para conversación: ${conversationId}`);
     
-    // Simular delay de red (200-800ms)
-    const delay = Math.random() * 600 + 200;
+    // Extraer wa_id del conversationId (remover prefijo 'conv_' si existe)
+    const waId = conversationId.replace('conv_', '');
+    
+    // Intentar obtener desde el endpoint real
+    const result = await getConversation(waId);
+    
+    if (result.success) {
+      console.log(`✅ Conversación obtenida desde backend: ${conversationId}`);
+      
+      // Formatear mensajes del backend para la UI
+      const formattedMessages = result.data.messages 
+        ? result.data.messages.map(formatBackendMessageForUI)
+        : [];
+      
+      return {
+        success: true,
+        conversationId,
+        messages: formattedMessages,
+        totalMessages: formattedMessages.length,
+        fromBackend: true
+      };
+    } else {
+      console.warn(`⚠️ Backend falló para ${conversationId}, usando fallback local`);
+      return await getConversationMessagesLocal(conversationId);
+    }
+    
+  } catch (error) {
+    console.error(`❌ Error al obtener conversación ${conversationId}:`, error);
+    console.log(`📋 Fallback: usando datos locales para ${conversationId}`);
+    return await getConversationMessagesLocal(conversationId);
+  }
+};
+
+/**
+ * Fallback: obtiene mensajes desde datos locales
+ * @param {string} conversationId - ID de la conversación
+ * @returns {Promise} - Promesa que resuelve con los mensajes locales
+ */
+const getConversationMessagesLocal = async (conversationId) => {
+  try {
+    // Simular delay de red (200-400ms)
+    const delay = Math.random() * 200 + 200;
     await new Promise(resolve => setTimeout(resolve, delay));
-    
-    // NOTA: En producción, esto sería algo como:
-    // const response = await fetch(`/api/conversations/${conversationId}/messages`);
-    // const data = await response.json();
     
     // Buscar la conversación en el JSON global (solo para simulación)
     const conversationData = messagesData.find(
@@ -42,17 +79,18 @@ export const getConversationMessages = async (conversationId) => {
     // Formatear mensajes para la UI
     const formattedMessages = conversationData.messages.map(formatMessageForUI);
     
-    console.log(`✅ Mensajes cargados para conversación ${conversationId}:`, formattedMessages.length);
+    console.log(`✅ Mensajes locales cargados para conversación ${conversationId}:`, formattedMessages.length);
     
     return {
       success: true,
       conversationId,
       messages: formattedMessages,
-      totalMessages: formattedMessages.length
+      totalMessages: formattedMessages.length,
+      fromBackend: false
     };
     
   } catch (error) {
-    console.error(`❌ Error al cargar mensajes para conversación ${conversationId}:`, error);
+    console.error(`❌ Error al cargar mensajes locales para conversación ${conversationId}:`, error);
     return {
       success: false,
       error: error.message,
@@ -126,8 +164,61 @@ export const pollConversationUpdates = (conversationId) => {
 };
 
 /**
- * Formatea un mensaje del backend para mostrar en la UI
- * @param {Object} message - Mensaje raw del backend
+ * Formatea un mensaje del backend (formato nuevo) para mostrar en la UI
+ * @param {Object} message - Mensaje del endpoint /get-conversation
+ * @returns {Object} - Mensaje formateado para la UI
+ */
+const formatBackendMessageForUI = (message) => {
+  const getSenderType = (sender) => {
+    if (sender === 'lead') return 'contact';
+    if (sender === 'bot') return 'bot';
+    if (sender === 'agente' || sender === 'agent' || sender === 'human_agent') return 'human_agent';
+    return 'contact';
+  };
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('es-MX', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+  };
+
+  const formatMessageDate = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('es-MX', {
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric'
+    });
+  };
+
+  const formatMessageText = (text, sender) => {
+    // Agregar emoji según el tipo de remitente
+    if (sender === 'bot') {
+      return `🤖 ${text}`;
+    } else if (sender === 'agente' || sender === 'agent' || sender === 'human_agent') {
+      return `👤 ${text}`;
+    }
+    // Para mensajes del lead (cliente), no agregar emoji
+    return text;
+  };
+
+  return {
+    id: message.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    text: formatMessageText(message.text, message.sender),
+    sender: getSenderType(message.sender),
+    messageDate: formatMessageDate(message.timestamp),
+    timestamp: formatTimestamp(message.timestamp),
+    originalTimestamp: message.timestamp,
+    originalSender: message.sender // Mantener sender original para referencia
+  };
+};
+
+/**
+ * Formatea un mensaje del backend (formato local) para mostrar en la UI
+ * @param {Object} message - Mensaje raw del backend local
  * @returns {Object} - Mensaje formateado para la UI
  */
 const formatMessageForUI = (message) => {

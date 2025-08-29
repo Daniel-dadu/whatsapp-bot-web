@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMessages } from '../contexts/MessagesContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
+import { sendAgentMessage } from '../services/apiService';
 
 const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -47,21 +48,55 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     }
   }, [selectedConversation?.id, selectedConversation?.conversation_mode, getConversationMode, setConversationMode]); // Solo cambiar cuando cambie la conversación
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || currentMode === 'bot') return;
     
-    // In a real app, this would send the message to the backend
-    console.log('Sending message:', newMessage);
+    const messageToSend = newMessage.trim();
+    const waId = selectedConversation.id.replace('conv_', '');
+    
+    // Limpiar el input inmediatamente para mejor UX
     setNewMessage('');
+    
+    try {
+      console.log('📤 Enviando mensaje del agente:', messageToSend);
+      
+      const result = await sendAgentMessage(waId, messageToSend);
+      
+      if (result.success) {
+        console.log('✅ Mensaje enviado exitosamente:', result.data);
+        // TODO: Aquí podrías actualizar la lista de mensajes localmente
+        // o refrescar los mensajes desde el backend
+      } else {
+        console.error('❌ Error al enviar mensaje:', result.error);
+        // TODO: Mostrar notificación de error al usuario
+        // Restablecer el mensaje en caso de error
+        setNewMessage(messageToSend);
+      }
+    } catch (error) {
+      console.error('❌ Error inesperado al enviar mensaje:', error);
+      // Restablecer el mensaje en caso de error
+      setNewMessage(messageToSend);
+    }
   };
 
-  const handleToggleMode = () => {
+  const handleToggleMode = async () => {
     if (!selectedConversation) return;
     
     const newMode = currentMode === 'bot' ? 'agente' : 'bot';
-    setConversationMode(selectedConversation.id, newMode);
-    console.log(`🔄 Modo cambiado a: ${newMode}`);
+    
+    try {
+      const result = await setConversationMode(selectedConversation.id, newMode);
+      
+      if (result.success) {
+        console.log(`✅ Modo cambiado exitosamente a: ${newMode}`);
+      } else {
+        console.error(`❌ Error al cambiar modo: ${result.error}`);
+        // Aquí podrías mostrar una notificación de error al usuario
+      }
+    } catch (error) {
+      console.error(`❌ Error inesperado al cambiar modo:`, error);
+    }
   };
 
   if (!selectedConversation) {
