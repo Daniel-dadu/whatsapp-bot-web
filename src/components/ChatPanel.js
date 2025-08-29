@@ -7,7 +7,9 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const { 
     conversationMessages, 
     loadingMessages, 
-    setActiveConversation 
+    setActiveConversation,
+    getConversationMode,
+    setConversationMode
   } = useMessages();
 
   // Obtener mensajes de la conversación actual
@@ -19,24 +21,40 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     ? loadingMessages[selectedConversation.id] || false
     : false;
 
+  // Obtener el modo actual de la conversación
+  const currentMode = selectedConversation ? getConversationMode(selectedConversation.id) : 'bot';
+  
   // Cargar mensajes cuando cambia la conversación seleccionada
   useEffect(() => {
     if (selectedConversation) {
       console.log(`🎯 ChatPanel: Conversación seleccionada cambiada a ${selectedConversation.id}`);
       setActiveConversation(selectedConversation.id);
+      
+      // Inicializar el modo desde los datos de la conversación si existe
+      if (selectedConversation.conversation_mode && !getConversationMode(selectedConversation.id)) {
+        setConversationMode(selectedConversation.id, selectedConversation.conversation_mode);
+      }
     } else {
       console.log('🎯 ChatPanel: No hay conversación seleccionada');
       setActiveConversation(null);
     }
-  }, [selectedConversation, setActiveConversation]);
+  }, [selectedConversation, setActiveConversation, getConversationMode, setConversationMode]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || currentMode === 'bot') return;
     
     // In a real app, this would send the message to the backend
     console.log('Sending message:', newMessage);
     setNewMessage('');
+  };
+
+  const handleToggleMode = () => {
+    if (!selectedConversation) return;
+    
+    const newMode = currentMode === 'bot' ? 'agente' : 'bot';
+    setConversationMode(selectedConversation.id, newMode);
+    console.log(`🔄 Modo cambiado a: ${newMode}`);
   };
 
   if (!selectedConversation) {
@@ -155,16 +173,40 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
       {/* Message input */}
       <div className="p-4 border-t border-gray-200 bg-white">
         <form onSubmit={handleSendMessage} className="flex space-x-2">
+          {/* Botón de cambio de modo */}
+          <button
+            type="button"
+            onClick={handleToggleMode}
+            className={`flex items-center space-x-1 px-3 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+              currentMode === 'agente'
+                ? 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500'
+                : 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-500'
+            }`}
+            title={`Cambiar a modo ${currentMode === 'agente' ? 'bot' : 'humano'}`}
+          >
+            <span className="text-base">
+              {currentMode === 'agente' ? '🤖' : '👤'}
+            </span>
+            <span className="hidden sm:inline">
+              {currentMode === 'agente' ? 'Bot' : 'Humano'}
+            </span>
+          </button>
+          
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Escribe un mensaje..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            placeholder={currentMode === 'bot' ? 'El bot está activo...' : 'Escribe un mensaje...'}
+            disabled={currentMode === 'bot'}
+            className={`flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none transition-colors ${
+              currentMode === 'bot'
+                ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                : 'focus:ring-2 focus:ring-green-500 focus:border-transparent'
+            }`}
           />
           <button
             type="submit"
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || currentMode === 'bot'}
             className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

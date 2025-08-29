@@ -88,7 +88,7 @@ export const formatContactForUI = (lead, conversationMessages = {}) => {
     lastMessage: getLastMessage(lead, conversationMessages),
     timestamp: getTimestamp(lead.updated_at),
     avatar: getInitials(lead.state.nombre),
-    status: lead.status,
+    status: lead.state.completed ? 'completed' : 'active',
     conversationMode: lead.conversation_mode,
     completed: lead.state.completed,
     assignedAdvisor: lead.asignado_asesor,

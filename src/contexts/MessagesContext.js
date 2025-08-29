@@ -22,6 +22,7 @@ export const MessagesProvider = ({ children }) => {
   const [loadingMessages, setLoadingMessages] = useState({});
   const [errorMessages, setErrorMessages] = useState({});
   const [activeConversationId, setActiveConversationId] = useState(null);
+  const [conversationModes, setConversationModes] = useState({}); // Estado para modos de conversación
   
   // Referencias para manejar el polling
   const pollingIntervalRef = useRef(null);
@@ -140,6 +141,34 @@ export const MessagesProvider = ({ children }) => {
   };
 
   /**
+   * Cambia el modo de conversación (bot/agente)
+   * @param {string} conversationId - ID de la conversación
+   * @param {string} mode - Nuevo modo ('bot' o 'agente')
+   */
+  const setConversationMode = (conversationId, mode) => {
+    if (!conversationId || (mode !== 'bot' && mode !== 'agente')) {
+      console.error('❌ Parámetros inválidos para setConversationMode:', { conversationId, mode });
+      return;
+    }
+    
+    console.log(`🔄 Cambiando modo de conversación ${conversationId} a: ${mode}`);
+    
+    setConversationModes(prev => ({
+      ...prev,
+      [conversationId]: mode
+    }));
+  };
+
+  /**
+   * Obtiene el modo actual de una conversación
+   * @param {string} conversationId - ID de la conversación
+   * @returns {string} - 'bot' o 'agente'
+   */
+  const getConversationMode = (conversationId) => {
+    return conversationModes[conversationId] || 'bot'; // Por defecto en modo bot
+  };
+
+  /**
    * Limpia todos los datos al hacer logout
    */
   const clearAllMessages = () => {
@@ -156,6 +185,7 @@ export const MessagesProvider = ({ children }) => {
     setLoadingMessages({});
     setErrorMessages({});
     setActiveConversationId(null);
+    setConversationModes({});
     
     // Limpiar caché del servicio
     clearConversationsCache();
@@ -202,10 +232,13 @@ export const MessagesProvider = ({ children }) => {
     loadingMessages,
     errorMessages,
     activeConversationId,
+    conversationModes,
     
     // Acciones
     loadConversationMessages,
     setActiveConversation,
+    setConversationMode,
+    getConversationMode,
     clearAllMessages,
     
     // Utilidades

@@ -11,9 +11,8 @@
             "telefono": "521234567890",
             "completed": false
         },
-        "conversation_mode": "human",  
-        "asignado_asesor": "asesor_ventas_001",
-        "status": "active"  
+        "conversation_mode": "agente",  
+        "asignado_asesor": "asesor_ventas_001"
     },
     {
         "id": "conv_12346",  
@@ -27,9 +26,8 @@
             "telefono": "522345678901",
             "completed": true
         },
-        "conversation_mode": "human",  
-        "asignado_asesor": "asesor_ventas_002",
-        "status": "active"  
+        "conversation_mode": "agente",  
+        "asignado_asesor": "asesor_ventas_002"
     },
     {
         "id": "conv_12347",  
@@ -44,8 +42,7 @@
             "completed": false
         },
         "conversation_mode": "bot",  
-        "asignado_asesor": "asesor_ventas_001",
-        "status": "active"  
+        "asignado_asesor": "asesor_ventas_001"
     },
     {
         "id": "conv_12348",  
@@ -60,8 +57,7 @@
             "completed": false
         },
         "conversation_mode": "bot",  
-        "asignado_asesor": "asesor_ventas_003",
-        "status": "paused"  
+        "asignado_asesor": "asesor_ventas_003"
     },
     {
         "id": "conv_12349",  
@@ -75,9 +71,8 @@
             "telefono": "525678901234",
             "completed": true
         },
-        "conversation_mode": "human",  
-        "asignado_asesor": "asesor_ventas_002",
-        "status": "completed"  
+        "conversation_mode": "agente",  
+        "asignado_asesor": "asesor_ventas_002"
     },
     {
         "id": "conv_12350",  
@@ -91,9 +86,8 @@
             "telefono": "526789012345",
             "completed": false
         },
-        "conversation_mode": "human",  
-        "asignado_asesor": "asesor_ventas_001",
-        "status": "active"  
+        "conversation_mode": "agente",  
+        "asignado_asesor": "asesor_ventas_001"
     },
     {
         "id": "conv_12351",  
@@ -107,9 +101,8 @@
             "telefono": "526789012346",
             "completed": false
         },
-        "conversation_mode": "human",  
-        "asignado_asesor": "asesor_ventas_001",
-        "status": "active"  
+        "conversation_mode": "agente",  
+        "asignado_asesor": "asesor_ventas_001"
     },
     {
         "id": "conv_12352",  
@@ -123,9 +116,8 @@
             "telefono": "526789012347",
             "completed": false
         },
-        "conversation_mode": "human",  
-        "asignado_asesor": "asesor_ventas_001",
-        "status": "active"  
+        "conversation_mode": "agente",  
+        "asignado_asesor": "asesor_ventas_001"
     },
     {
         "id": "conv_12353",  
@@ -139,8 +131,7 @@
             "telefono": "526789012348",
             "completed": false
         },
-        "conversation_mode": "human",  
-        "asignado_asesor": "asesor_ventas_001",
-        "status": "active"  
+        "conversation_mode": "agente",  
+        "asignado_asesor": "asesor_ventas_001"
     }
 ]
