@@ -51,6 +51,14 @@ export const MessagesProvider = ({ children }) => {
           [conversationId]: result.messages
         }));
         
+        // Si hay información del modo de conversación, actualizarla
+        if (result.conversationMode) {
+          setConversationModes(prev => ({
+            ...prev,
+            [conversationId]: result.conversationMode
+          }));
+        }
+        
         // Limpiar cualquier error previo
         setErrorMessages(prev => {
           const newState = { ...prev };
@@ -125,12 +133,26 @@ export const MessagesProvider = ({ children }) => {
   /**
    * Establece la conversación activa y maneja el polling
    * @param {string} conversationId - ID de la conversación activa
+   * @param {Object} conversationData - Datos completos de la conversación (opcional)
    */
-  const setActiveConversation = useCallback(async (conversationId) => {
+  const setActiveConversation = useCallback(async (conversationId, conversationData = null) => {
     console.log(`🎯 Estableciendo conversación activa: ${conversationId}`);
     
     // Actualizar conversación activa
     setActiveConversationId(conversationId);
+    
+    // Si se proporcionan datos de la conversación, inicializar el modo
+    if (conversationData && conversationData.conversationMode) {
+      const currentMode = conversationModes[conversationId];
+      // Solo actualizar si no existe o es diferente al del backend
+      if (!currentMode || currentMode !== conversationData.conversationMode) {
+        console.log(`🔧 Inicializando modo desde datos de conversación: ${conversationId} -> ${conversationData.conversationMode}`);
+        setConversationModes(prev => ({
+          ...prev,
+          [conversationId]: conversationData.conversationMode
+        }));
+      }
+    }
     
     // Cargar mensajes si no los tenemos y no han fallado previamente
     if (conversationId && !conversationMessages[conversationId] && !errorMessages[conversationId]) {
@@ -139,6 +161,7 @@ export const MessagesProvider = ({ children }) => {
     
     // Reiniciar polling para la nueva conversación
     setupPolling(conversationId);
+  // eslint-disable-next-line
   }, [conversationMessages, errorMessages, loadConversationMessages, setupPolling]); // Incluir dependencias necesarias
 
   /**

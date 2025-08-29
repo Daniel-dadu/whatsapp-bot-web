@@ -42,6 +42,7 @@ export const getConversationMessages = async (conversationId) => {
         conversationId,
         messages: formattedMessages,
         totalMessages: formattedMessages.length,
+        conversationMode: result.data.conversation_mode,
         fromBackend: true
       };
     } else {

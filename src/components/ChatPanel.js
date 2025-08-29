@@ -29,7 +29,8 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   useEffect(() => {
     if (selectedConversation) {
       console.log(`🎯 ChatPanel: Conversación seleccionada cambiada a ${selectedConversation.id}`);
-      setActiveConversation(selectedConversation.id);
+      // Pasar los datos completos de la conversación para inicializar el modo correctamente
+      setActiveConversation(selectedConversation.id, selectedConversation);
     } else {
       console.log('🎯 ChatPanel: No hay conversación seleccionada');
       setActiveConversation(null);
@@ -37,16 +38,7 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   // eslint-disable-next-line
   }, [selectedConversation?.id, setActiveConversation]); // Solo dependencias estables
   
-  // Inicializar modo de conversación por separado
-  useEffect(() => {
-    if (selectedConversation?.conversation_mode && selectedConversation.id) {
-      const storedMode = getConversationMode(selectedConversation.id);
-      // Solo establecer si no hay modo almacenado o es diferente
-      if (storedMode === 'bot' && selectedConversation.conversation_mode !== 'bot') {
-        setConversationMode(selectedConversation.id, selectedConversation.conversation_mode);
-      }
-    }
-  }, [selectedConversation?.id, selectedConversation?.conversation_mode, getConversationMode, setConversationMode]); // Solo cambiar cuando cambie la conversación
+  // Este useEffect ya no es necesario porque la inicialización se hace en setActiveConversation
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
