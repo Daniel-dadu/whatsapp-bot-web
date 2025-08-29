@@ -186,8 +186,8 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             onClick={handleToggleMode}
             className={`flex items-center space-x-1 px-3 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
               currentMode === 'agente'
-                ? 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500'
-                : 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-500'
+              ? 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-500'
+              : 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500'
             }`}
             title={`Cambiar a modo ${currentMode === 'agente' ? 'bot' : 'humano'}`}
           >
