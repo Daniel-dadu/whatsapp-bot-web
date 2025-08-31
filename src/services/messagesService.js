@@ -195,20 +195,9 @@ const formatBackendMessageForUI = (message) => {
     });
   };
 
-  const formatMessageText = (text, sender) => {
-    // Agregar emoji según el tipo de remitente
-    if (sender === 'bot') {
-      return `🤖 ${text}`;
-    } else if (sender === 'agente' || sender === 'agent' || sender === 'human_agent') {
-      return `👤 ${text}`;
-    }
-    // Para mensajes del lead (cliente), no agregar emoji
-    return text;
-  };
-
   return {
     id: message.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    text: formatMessageText(message.text, message.sender),
+    text: message.text,
     sender: getSenderType(message.sender),
     messageDate: formatMessageDate(message.timestamp),
     timestamp: formatTimestamp(message.timestamp),
@@ -248,22 +237,9 @@ const formatMessageForUI = (message) => {
     });
   };
 
-  const formatMessageText = (text, sender) => {
-    // Agregar emoji según el tipo de remitente
-    if (sender === 'bot') {
-      return `🤖 ${text}`;
-    } else if (sender.startsWith('asesor_')) {
-      return `👤 ${text}`;
-    }
-    // Para mensajes del lead (cliente), no agregar emoji
-    return text;
-  };
-
-
-
   return {
     id: message.id,
-    text: formatMessageText(message.text, message.sender),
+    text: message.text,
     sender: getSenderType(message.sender),
     messageDate: formatMessageDate(message.timestamp),
     timestamp: formatTimestamp(message.timestamp),

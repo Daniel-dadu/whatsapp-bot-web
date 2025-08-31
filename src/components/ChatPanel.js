@@ -5,12 +5,14 @@ import { sendAgentMessage } from '../services/apiService';
 
 const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [newMessage, setNewMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { 
     conversationMessages, 
     loadingMessages, 
     setActiveConversation,
     getConversationMode,
-    setConversationMode
+    setConversationMode,
+    addMessageToConversation
   } = useMessages();
 
   // Obtener mensajes de la conversación actual
@@ -42,13 +44,12 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || currentMode === 'bot') return;
+    if (!newMessage.trim() || currentMode === 'bot' || isLoading) return;
     
     const messageToSend = newMessage.trim();
     const waId = selectedConversation.id.replace('conv_', '');
     
-    // Limpiar el input inmediatamente para mejor UX
-    setNewMessage('');
+    setIsLoading(true);
     
     try {
       console.log('📤 Enviando mensaje del agente:', messageToSend);
@@ -57,25 +58,41 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
       
       if (result.success) {
         console.log('✅ Mensaje enviado exitosamente:', result.data);
-        // TODO: Aquí podrías actualizar la lista de mensajes localmente
-        // o refrescar los mensajes desde el backend
+        
+        // Crear mensaje con datos reales del backend
+        const newMessage = {
+          id: result.data.message_id_sent,
+          sender: 'human_agent',
+          text: messageToSend,
+          timestamp: new Date(result.data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          messageDate: new Date(result.data.timestamp).toLocaleDateString(),
+          delivered: true,
+          read: true
+        };
+        
+        // Agregar mensaje a la conversación solo después del éxito
+        addMessageToConversation(selectedConversation.id, newMessage);
+        
+        // Limpiar el input solo después del éxito
+        setNewMessage('');
       } else {
         console.error('❌ Error al enviar mensaje:', result.error);
         // TODO: Mostrar notificación de error al usuario
-        // Restablecer el mensaje en caso de error
-        setNewMessage(messageToSend);
       }
     } catch (error) {
       console.error('❌ Error inesperado al enviar mensaje:', error);
-      // Restablecer el mensaje en caso de error
-      setNewMessage(messageToSend);
+      // TODO: Mostrar notificación de error al usuario
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleToggleMode = async () => {
-    if (!selectedConversation) return;
+    if (!selectedConversation || isLoading) return;
     
     const newMode = currentMode === 'bot' ? 'agente' : 'bot';
+    
+    setIsLoading(true);
     
     try {
       const result = await setConversationMode(selectedConversation.id, newMode);
@@ -88,6 +105,8 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
       }
     } catch (error) {
       console.error(`❌ Error inesperado al cambiar modo:`, error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -165,7 +184,11 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                     : 'bg-white text-gray-800 border border-gray-200'
                 }`}
               >
-                <p className="text-sm">{message.text}</p>
+                <p className="text-sm">
+                  {message.sender === 'bot' && '🤖 '}
+                  {message.sender === 'human_agent' && '👤 '}
+                  {message.text}
+                </p>
                 <div className="flex items-center justify-between mt-1">
                   <p className={`text-xs ${
                     message.sender === 'bot'
@@ -204,6 +227,14 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
         ) : null}
       </div>
       
+      {/* Loading bar */}
+      {isLoading && (
+        <div className="h-1 bg-gray-200 relative overflow-hidden">
+          <div className="absolute inset-0 bg-green-500 animate-pulse"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-bounce"></div>
+        </div>
+      )}
+      
       {/* Message input */}
       <div className="p-4 border-t border-gray-200 bg-white">
         <form onSubmit={handleSendMessage} className="flex space-x-2">
@@ -211,11 +242,12 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
           <button
             type="button"
             onClick={handleToggleMode}
+            disabled={isLoading}
             className={`flex items-center space-x-1 px-3 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
               currentMode === 'agente'
               ? 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-500'
               : 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500'
-            }`}
+            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             title={`Cambiar a modo ${currentMode === 'agente' ? 'bot' : 'humano'}`}
           >
             <span className="text-base">
@@ -230,17 +262,17 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={currentMode === 'bot' ? 'El bot está activo...' : 'Escribe un mensaje...'}
-            disabled={currentMode === 'bot'}
+            placeholder={currentMode === 'bot' ? 'El bot está activo...' : isLoading ? 'Enviando...' : 'Escribe un mensaje...'}
+            disabled={currentMode === 'bot' || isLoading}
             className={`flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none transition-colors ${
-              currentMode === 'bot'
+              currentMode === 'bot' || isLoading
                 ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                 : 'focus:ring-2 focus:ring-green-500 focus:border-transparent'
             }`}
           />
           <button
             type="submit"
-            disabled={!newMessage.trim() || currentMode === 'bot'}
+            disabled={!newMessage.trim() || currentMode === 'bot' || isLoading}
             className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

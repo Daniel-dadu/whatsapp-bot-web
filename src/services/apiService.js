@@ -286,3 +286,48 @@ export const changeConversationMode = async (waId, mode) => {
     };
   }
 };
+
+// Función para obtener mensajes recientes usando el endpoint de polling
+export const getRecentMessages = async (waId, lastMessageId = null) => {
+  try {
+    const endpoint = process.env.REACT_APP_GET_RECENT_MESSAGES_ENDPOINT;
+    
+    if (!endpoint) {
+      throw new Error('REACT_APP_GET_RECENT_MESSAGES_ENDPOINT no está configurado');
+    }
+
+    const body = { wa_id: waId };
+    if (lastMessageId) {
+      body.last_message_id = lastMessageId;
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(body)
+    });
+
+    // Para polling, manejar errores de autenticación sin recargar la página
+    if (response.status === 401) {
+      return { success: false, error: 'Token expirado' };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      success: true,
+      data: data
+    };
+  } catch (error) {
+    console.error('Error al obtener mensajes recientes:', error);
+    return {
+      success: false,
+      error: error.message || 'Error al obtener mensajes recientes'
+    };
+  }
+};

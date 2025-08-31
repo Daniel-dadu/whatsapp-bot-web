@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { 
   getCachedConversationMessages, 
-  pollConversationUpdates, 
   clearConversationsCache,
   getCacheStats 
 } from '../services/messagesService';
-import { changeConversationMode } from '../services/apiService';
+import { changeConversationMode, getRecentMessages } from '../services/apiService';
 
 const MessagesContext = createContext();
 
@@ -106,6 +105,97 @@ export const MessagesProvider = ({ children }) => {
   }, []); // Sin dependencias ya que usa solo setters estables
 
   /**
+   * Formatea un mensaje para mostrar correctamente en la UI
+   * @param {Object} message - Mensaje del backend
+   * @returns {Object} - Mensaje formateado
+   */
+  const formatMessageForUI = useCallback((message) => {
+    const timestamp = new Date(message.timestamp);
+    return {
+      ...message,
+      timestamp: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      messageDate: timestamp.toLocaleDateString()
+    };
+  }, []);
+
+  /**
+   * Actualiza los mensajes de una conversación con nuevos mensajes (para uso futuro con polling)
+   * @param {string} conversationId - ID de la conversación
+   * @param {Array} newMessages - Array de mensajes nuevos del backend
+   */
+  const updateConversationWithNewMessages = useCallback((conversationId, newMessages) => {
+    if (!conversationId || !Array.isArray(newMessages)) {
+      console.error('❌ Parámetros inválidos para updateConversationWithNewMessages:', { conversationId, newMessages });
+      return;
+    }
+
+    console.log(`🔄 Actualizando conversación ${conversationId} con ${newMessages.length} mensajes nuevos`);
+
+    setConversationMessages(prev => {
+      const currentMessages = prev[conversationId] || [];
+      
+      // Combinar mensajes existentes con nuevos, evitando duplicados
+      const existingIds = new Set(currentMessages.map(msg => msg.id));
+      const uniqueNewMessages = newMessages
+        .filter(msg => !existingIds.has(msg.id))
+        .map(msg => formatMessageForUI(msg)); // Formatear cada mensaje nuevo
+
+      return {
+        ...prev,
+        [conversationId]: [...currentMessages, ...uniqueNewMessages]
+      };
+    });
+  }, [formatMessageForUI]); // Incluir la función de formateo como dependencia
+
+  /**
+   * Realiza polling para obtener mensajes nuevos de una conversación
+   * @param {string} conversationId - ID de la conversación
+   */
+  const pollForNewMessages = useCallback(async (conversationId) => {
+    if (!conversationId) return;
+
+    const waId = conversationId.replace('conv_', '');
+    const currentMessages = conversationMessages[conversationId] || [];
+    
+    // Obtener el ID del último mensaje para usar como referencia
+    const lastMessageId = currentMessages.length > 0 
+      ? currentMessages[currentMessages.length - 1].id 
+      : null;
+
+    try {
+      const result = await getRecentMessages(waId, lastMessageId);
+      
+      if (result.success && result.data.messages && result.data.messages.length > 0) {
+        console.log(`📡 Polling: ${result.data.messages.length} mensajes nuevos para ${conversationId}`);
+        
+        // Actualizar mensajes usando la función existente
+        updateConversationWithNewMessages(conversationId, result.data.messages);
+        
+        // Actualizar modo de conversación si cambió
+        if (result.data.conversation_mode) {
+          const currentMode = conversationModes[conversationId];
+          if (currentMode !== result.data.conversation_mode) {
+            setConversationModes(prev => ({
+              ...prev,
+              [conversationId]: result.data.conversation_mode
+            }));
+          }
+        }
+      } else if (!result.success && result.error === 'Token expirado') {
+        // Si el token expiró durante el polling, detener el polling sin recargar la página
+        console.log('⏹️ Deteniendo polling - token expirado');
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+      }
+    } catch (error) {
+      console.error(`❌ Error en polling para ${conversationId}:`, error);
+      // No hacer nada más para evitar que el polling cause problemas
+    }
+  }, [conversationMessages, conversationModes, updateConversationWithNewMessages]);
+
+  /**
    * Configura el sistema de polling para la conversación activa
    * @param {string} conversationId - ID de la conversación para hacer polling
    */
@@ -126,9 +216,9 @@ export const MessagesProvider = ({ children }) => {
     
     // Configurar nuevo polling
     pollingIntervalRef.current = setInterval(() => {
-      pollConversationUpdates(conversationId);
+      pollForNewMessages(conversationId);
     }, POLLING_INTERVAL);
-  }, []); // Sin dependencias ya que usa refs y constantes
+  }, [pollForNewMessages]); // Depende de la función de polling
   
   /**
    * Establece la conversación activa y maneja el polling
@@ -141,11 +231,11 @@ export const MessagesProvider = ({ children }) => {
     // Actualizar conversación activa
     setActiveConversationId(conversationId);
     
-    // Si se proporcionan datos de la conversación, inicializar el modo
+    // Si se proporcionan datos de la conversación, inicializar el modo solo si no existe
     if (conversationData && conversationData.conversationMode) {
       const currentMode = conversationModes[conversationId];
-      // Solo actualizar si no existe o es diferente al del backend
-      if (!currentMode || currentMode !== conversationData.conversationMode) {
+      // Solo actualizar si no existe el modo actual (primera carga)
+      if (!currentMode) {
         console.log(`🔧 Inicializando modo desde datos de conversación: ${conversationId} -> ${conversationData.conversationMode}`);
         setConversationModes(prev => ({
           ...prev,
@@ -210,6 +300,28 @@ export const MessagesProvider = ({ children }) => {
   const getConversationMode = useCallback((conversationId) => {
     return conversationModes[conversationId] || 'bot'; // Por defecto en modo bot
   }, [conversationModes]); // Depende del estado de modos
+
+  /**
+   * Agrega un mensaje local a una conversación
+   * @param {string} conversationId - ID de la conversación
+   * @param {Object} message - Objeto del mensaje con text, sender, etc.
+   */
+  const addMessageToConversation = useCallback((conversationId, message) => {
+    if (!conversationId || !message) {
+      console.error('❌ Parámetros inválidos para addMessageToConversation:', { conversationId, message });
+      return;
+    }
+
+    console.log(`📝 Agregando mensaje local a conversación ${conversationId}:`, message);
+
+    setConversationMessages(prev => ({
+      ...prev,
+      [conversationId]: [
+        ...(prev[conversationId] || []),
+        message
+      ]
+    }));
+  }, []); // Sin dependencias ya que usa solo setters estables
 
   /**
    * Limpia todos los datos al hacer logout
@@ -282,6 +394,9 @@ export const MessagesProvider = ({ children }) => {
     setActiveConversation,
     setConversationMode,
     getConversationMode,
+    addMessageToConversation,
+    updateConversationWithNewMessages,
+    pollForNewMessages,
     clearAllMessages,
     
     // Utilidades
