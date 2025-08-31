@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMessages } from '../contexts/MessagesContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import { sendAgentMessage } from '../services/apiService';
@@ -6,6 +6,7 @@ import { sendAgentMessage } from '../services/apiService';
 const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
   const { 
     conversationMessages, 
     loadingMessages, 
@@ -41,6 +42,18 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   }, [selectedConversation?.id, setActiveConversation]); // Solo dependencias estables
   
   // Este useEffect ya no es necesario porque la inicialización se hace en setActiveConversation
+
+  // Función para hacer scroll automático al final de los mensajes
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Auto-scroll cuando cambian los mensajes o se selecciona una nueva conversación
+  useEffect(() => {
+    if (!isLoadingCurrentConversation && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages.length, selectedConversation?.id, isLoadingCurrentConversation]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -176,7 +189,7 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
               }`}
             >
               <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                className={`max-w-xs lg:max-w-md min-w-[200px] px-4 py-2 rounded-lg ${
                   message.sender === 'bot'
                     ? 'bg-blue-500 text-white'
                     : message.sender === 'human_agent'
@@ -190,6 +203,7 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                   {message.text}
                 </p>
                 <div className="flex items-center justify-between mt-1">
+                  {/* Mostrar hora del mensaje */}
                   <p className={`text-xs ${
                     message.sender === 'bot'
                       ? 'text-blue-100'
@@ -225,6 +239,9 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             </div>
           </div>
         ) : null}
+        
+        {/* Elemento invisible para hacer scroll automático */}
+        <div ref={messagesEndRef} />
       </div>
       
       {/* Loading bar */}
