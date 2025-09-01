@@ -101,11 +101,11 @@ const getRecentContactsLocal = async () => {
 // Función auxiliar para formatear los datos del lead para mostrar en la UI
 export const formatContactForUI = (lead, conversationMessages = {}) => {
   const getInitials = (name) => {
-    return name
+    return name ? name
       .split(' ')
       .map(word => word.charAt(0).toUpperCase())
       .slice(0, 2)
-      .join('');
+      .join('') : ' ';
   };
 
   const getLastMessage = (lead, conversationMessages) => {
@@ -152,7 +152,7 @@ export const formatContactForUI = (lead, conversationMessages = {}) => {
   return {
     id: lead.id,
     leadId: lead.lead_id,
-    name: lead.state.nombre_completo || lead.state.nombre,
+    name: lead.state.nombre || 'Nuevo lead',
     phone: lead.state.telefono,
     lastMessage: getLastMessage(lead, conversationMessages),
     timestamp: getTimestamp(lead.updated_at),
