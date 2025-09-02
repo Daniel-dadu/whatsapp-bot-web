@@ -39,7 +39,7 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
       setActiveConversation(null);
     }
   // eslint-disable-next-line
-  }, [selectedConversation?.id, setActiveConversation]); // Solo dependencias estables
+  }, [selectedConversation?.id]); // Remover setActiveConversation de las dependencias
   
   // Este useEffect ya no es necesario porque la inicialización se hace en setActiveConversation
 

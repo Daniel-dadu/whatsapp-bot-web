@@ -4,8 +4,8 @@ import { useMessages } from '../contexts/MessagesContext';
 import { formatContactForUI } from '../services/contactsService';
 
 const ConversationList = ({ onSelectConversation, selectedConversation }) => {
-  const { contacts, loadingContacts, logout } = useAuth();
-  const { conversationMessages } = useMessages();
+  const { logout } = useAuth();
+  const { contacts, loadingContacts, conversationMessages } = useMessages();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Actualizar contactos con los últimos mensajes reales cuando están disponibles

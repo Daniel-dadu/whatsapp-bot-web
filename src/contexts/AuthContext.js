@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getRecentContacts, loginRequest } from '../services/apiService';
-import { formatContactForUI } from '../services/contactsService';
+import { loginRequest } from '../services/apiService';
 
 const AuthContext = createContext();
 
@@ -15,26 +14,6 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [contacts, setContacts] = useState([]);
-  const [loadingContacts, setLoadingContacts] = useState(false);
-
-  // Función para cargar contactos recientes
-  const loadRecentContacts = async () => {
-    setLoadingContacts(true);
-    try {
-      const response = await getRecentContacts();
-      if (response.success) {
-        const formattedContacts = response.data.map(lead => formatContactForUI(lead, {}));
-        setContacts(formattedContacts);
-      } else {
-        console.error('Error al cargar contactos:', response.error);
-      }
-    } catch (error) {
-      console.error('Error al cargar contactos:', error);
-    } finally {
-      setLoadingContacts(false);
-    }
-  };
 
   // Check if user has a valid JWT token
   useEffect(() => {
@@ -48,8 +27,6 @@ export const AuthProvider = ({ children }) => {
           
           if (payload.exp && payload.exp > now) {
             setIsAuthenticated(true);
-            // Cargar contactos automáticamente al detectar sesión válida
-            await loadRecentContacts();
           } else {
             // Token expirado, limpiar
             localStorage.removeItem('access_token');
@@ -88,9 +65,6 @@ export const AuthProvider = ({ children }) => {
           
           console.log('✅ Login exitoso, token JWT guardado');
           setIsAuthenticated(true);
-          
-          // Cargar contactos automáticamente al hacer login
-          await loadRecentContacts();
           return true;
         } else {
           console.error('Error en login: No se recibió access_token');
@@ -115,22 +89,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('expires_in');
     
     setIsAuthenticated(false);
-    setContacts([]); // Limpiar contactos al hacer logout
     
     console.log('🚪 Logout realizado, tokens JWT eliminados');
-    
-    // NOTA: Los mensajes se limpiarán desde el ChatApp cuando detecte el logout
-    // No podemos importar useMessages aquí para evitar dependencias circulares
   };
 
   const value = {
     isAuthenticated,
     login,
     logout,
-    loading,
-    contacts,
-    loadingContacts,
-    loadRecentContacts
+    loading
   };
 
   return (

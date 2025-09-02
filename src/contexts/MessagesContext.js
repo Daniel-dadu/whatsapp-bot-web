@@ -4,7 +4,8 @@ import {
   clearConversationsCache,
   getCacheStats 
 } from '../services/messagesService';
-import { changeConversationMode, getRecentMessages } from '../services/apiService';
+import { changeConversationMode, getRecentMessages, getRecentContacts } from '../services/apiService';
+import { formatContactForUI } from '../services/contactsService';
 
 const MessagesContext = createContext();
 
@@ -24,9 +25,32 @@ export const MessagesProvider = ({ children }) => {
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [conversationModes, setConversationModes] = useState({}); // Estado para modos de conversación
   
+  // Estado para manejar contactos
+  const [contacts, setContacts] = useState([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  
   // Referencias para manejar el polling
   const pollingIntervalRef = useRef(null);
   const POLLING_INTERVAL = 15000; // 15 segundos
+
+  // Función para cargar contactos recientes
+  const loadRecentContacts = useCallback(async () => {
+    setLoadingContacts(true);
+    try {
+      const response = await getRecentContacts();
+      if (response.success) {
+        const formattedContacts = response.data.map(lead => formatContactForUI(lead, conversationMessages));
+        setContacts(formattedContacts);
+      } else {
+        console.error('Error al cargar contactos:', response.error);
+      }
+    } catch (error) {
+      console.error('Error al cargar contactos:', error);
+    } finally {
+      setLoadingContacts(false);
+    }
+  // eslint-disable-next-line
+  }, []); // Remover conversationMessages de las dependencias para evitar re-renders
 
   /**
    * Carga los mensajes de una conversación específica
@@ -145,7 +169,22 @@ export const MessagesProvider = ({ children }) => {
         [conversationId]: [...currentMessages, ...uniqueNewMessages]
       };
     });
-  }, [formatMessageForUI]); // Incluir la función de formateo como dependencia
+
+    // Actualizar contactos con los nuevos mensajes
+    setContacts(prev => prev.map(contact => {
+      if (contact.id === conversationId) {
+        const updatedContact = formatContactForUI(contact.originalData, {
+          ...conversationMessages,
+          [conversationId]: [...(conversationMessages[conversationId] || []), ...newMessages]
+        });
+        return {
+          ...contact,
+          lastMessage: updatedContact.lastMessage
+        };
+      }
+      return contact;
+    }));
+  }, [formatMessageForUI, conversationMessages]); // Incluir la función de formateo como dependencia
 
   /**
    * Realiza polling para obtener mensajes nuevos de una conversación
@@ -155,14 +194,29 @@ export const MessagesProvider = ({ children }) => {
     if (!conversationId) return;
 
     const waId = conversationId.replace('conv_', '');
-    const currentMessages = conversationMessages[conversationId] || [];
     
-    // Obtener el ID del último mensaje para usar como referencia
-    const lastMessageId = currentMessages.length > 0 
-      ? currentMessages[currentMessages.length - 1].id 
-      : null;
+    // Usar setConversationMessages para acceder al estado actual
+    let shouldContinuePolling = false;
+    let lastMessageId = null;
+    
+    setConversationMessages(currentState => {
+      const currentMessages = currentState[conversationId] || [];
+      
+      // No hacer polling si no hay mensajes cargados aún
+      if (currentMessages.length === 0) {
+        console.log(`📡 Polling omitido para ${conversationId} - no hay mensajes cargados aún`);
+        return currentState; // No cambiar el estado
+      }
+      
+      shouldContinuePolling = true;
+      lastMessageId = currentMessages[currentMessages.length - 1].id;
+      return currentState; // No cambiar el estado
+    });
+    
+    if (!shouldContinuePolling) return;
 
     try {
+      console.log(`📡 Polling: ejecutando polling para ${conversationId}`);
       const result = await getRecentMessages(waId, lastMessageId);
       
       if (result.success && result.data.messages && result.data.messages.length > 0) {
@@ -193,7 +247,7 @@ export const MessagesProvider = ({ children }) => {
       console.error(`❌ Error en polling para ${conversationId}:`, error);
       // No hacer nada más para evitar que el polling cause problemas
     }
-  }, [conversationMessages, conversationModes, updateConversationWithNewMessages]);
+  }, [conversationModes, updateConversationWithNewMessages]);
 
   /**
    * Configura el sistema de polling para la conversación activa
@@ -247,10 +301,12 @@ export const MessagesProvider = ({ children }) => {
     // Cargar mensajes si no los tenemos y no han fallado previamente
     if (conversationId && !conversationMessages[conversationId] && !errorMessages[conversationId]) {
       await loadConversationMessages(conversationId);
+      // Configurar polling después de cargar los mensajes
+      setTimeout(() => setupPolling(conversationId), 1000);
+    } else {
+      // Si ya hay mensajes, configurar polling inmediatamente
+      setupPolling(conversationId);
     }
-    
-    // Reiniciar polling para la nueva conversación
-    setupPolling(conversationId);
   // eslint-disable-next-line
   }, [conversationMessages, errorMessages, loadConversationMessages, setupPolling]); // Incluir dependencias necesarias
 
@@ -341,6 +397,7 @@ export const MessagesProvider = ({ children }) => {
     setErrorMessages({});
     setActiveConversationId(null);
     setConversationModes({});
+    setContacts([]); // Limpiar contactos también
     
     // Limpiar caché del servicio
     clearConversationsCache();
@@ -388,6 +445,8 @@ export const MessagesProvider = ({ children }) => {
     errorMessages,
     activeConversationId,
     conversationModes,
+    contacts,
+    loadingContacts,
     
     // Acciones
     loadConversationMessages,
@@ -398,6 +457,7 @@ export const MessagesProvider = ({ children }) => {
     updateConversationWithNewMessages,
     pollForNewMessages,
     clearAllMessages,
+    loadRecentContacts,
     
     // Utilidades
     getDebugInfo

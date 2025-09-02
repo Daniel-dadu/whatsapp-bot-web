@@ -6,9 +6,17 @@ import ChatPanel from './ChatPanel';
 
 const ChatApp = () => {
   const { isAuthenticated } = useAuth();
-  const { clearAllMessages } = useMessages();
+  const { clearAllMessages, loadRecentContacts } = useMessages();
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [showMobileChat, setShowMobileChat] = useState(false);
+
+  // Cargar contactos cuando el usuario está autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadRecentContacts();
+    }
+  // eslint-disable-next-line
+  }, [isAuthenticated]); // Remover loadRecentContacts de las dependencias
 
   // Limpiar mensajes si el usuario se desautentica
   useEffect(() => {
