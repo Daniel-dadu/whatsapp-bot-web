@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessages } from '../contexts/MessagesContext';
-import { formatContactForUI } from '../services/apiService';
+import { formatContactForUI } from '../services/contactsService';
 
 const ConversationList = ({ onSelectConversation, selectedConversation }) => {
   const { contacts, loadingContacts, logout } = useAuth();

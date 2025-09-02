@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getRecentContacts, formatContactForUI } from '../services/apiService';
+import { getRecentContacts, loginRequest } from '../services/apiService';
+import { formatContactForUI } from '../services/contactsService';
 
 const AuthContext = createContext();
 
@@ -71,24 +72,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const loginEndpoint = process.env.REACT_APP_LOGIN_ENDPOINT;
-
-      if (!loginEndpoint) {
-        console.error('REACT_APP_LOGIN_ENDPOINT no está definida');
-        return false;
-      }
-      
       // Validating credentials in backend
-      const response = await fetch(loginEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username,
-          password
-        })
-      });
+      const response = await loginRequest(username, password);
 
       if (response.ok) {
         const data = await response.json();
