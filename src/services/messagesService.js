@@ -1,4 +1,3 @@
-import messagesData from '../testData/messages.json';
 import { getConversation } from './apiService';
 
 // Cache en memoria para almacenar conversaciones ya cargadas
@@ -52,50 +51,13 @@ export const getConversationMessages = async (conversationId) => {
     
   } catch (error) {
     console.error(`❌ Error al obtener conversación ${conversationId}:`, error);
-    console.log(`📋 Fallback: usando datos locales para ${conversationId}`);
-    return await getConversationMessagesLocal(conversationId);
-  }
-};
-
-/**
- * Fallback: obtiene mensajes desde datos locales
- * @param {string} conversationId - ID de la conversación
- * @returns {Promise} - Promesa que resuelve con los mensajes locales
- */
-const getConversationMessagesLocal = async (conversationId) => {
-  try {
-    // Simular delay de red (200-400ms)
-    const delay = Math.random() * 200 + 200;
-    await new Promise(resolve => setTimeout(resolve, delay));
-    
-    // Buscar la conversación en el JSON global (solo para simulación)
-    const conversationData = messagesData.find(
-      conv => conv.conversation_id === conversationId
-    );
-    
-    if (!conversationData) {
-      throw new Error(`Conversación ${conversationId} no encontrada`);
-    }
-    
-    // Formatear mensajes para la UI
-    const formattedMessages = conversationData.messages.map(formatMessageForUI);
-    
-    console.log(`✅ Mensajes locales cargados para conversación ${conversationId}:`, formattedMessages.length);
-    
-    return {
-      success: true,
-      conversationId,
-      messages: formattedMessages,
-      totalMessages: formattedMessages.length,
-      fromBackend: false
-    };
-    
-  } catch (error) {
-    console.error(`❌ Error al cargar mensajes locales para conversación ${conversationId}:`, error);
     return {
       success: false,
-      error: error.message,
-      conversationId
+      conversationId,
+      messages: [],
+      error: 'Error al obtener conversación',
+      fromCache: true,
+      previouslyFailed: true
     };
   }
 };

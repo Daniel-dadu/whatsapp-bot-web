@@ -1,5 +1,3 @@
-import leadsData from '../testData/leads.json';
-
 // Función utilitaria para obtener headers de autenticación
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token');
@@ -66,34 +64,9 @@ export const getRecentContacts = async () => {
     };
   } catch (error) {
     console.error('❌ Error al obtener contactos desde backend:', error);
-    console.log('📋 Fallback: usando datos locales');
-    
-    // Fallback a datos locales en caso de error
-    return getRecentContactsLocal();
-  }
-};
-
-// Función auxiliar para obtener datos locales (fallback)
-const getRecentContactsLocal = async () => {
-  try {
-    // Simular delay de red
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Ordenar por updated_at más reciente y tomar los primeros 10
-    const sortedContacts = leadsData
-      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-      .slice(0, 10);
-    
-    return {
-      success: true,
-      data: sortedContacts,
-      fromBackend: false
-    };
-  } catch (error) {
-    console.error('Error al obtener contactos locales:', error);
     return {
       success: false,
-      error: 'Error al cargar los contactos'
+      error: 'Error al obtener contactos'
     };
   }
 };
