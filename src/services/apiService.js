@@ -87,8 +87,7 @@ export const getRecentContacts = async () => {
     
     return {
       success: true,
-      data: data,
-      fromBackend: true
+      data: data
     };
   } catch (error) {
     console.error('❌ Error al obtener contactos desde backend:', error);

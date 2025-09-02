@@ -29,6 +29,9 @@ export const MessagesProvider = ({ children }) => {
   const [contacts, setContacts] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
   
+  // Estado para manejar la conversación seleccionada
+  const [selectedConversation, setSelectedConversation] = useState(null);
+
   // Referencias para manejar el polling
   const pollingIntervalRef = useRef(null);
   const POLLING_INTERVAL = 15000; // 15 segundos
@@ -93,6 +96,39 @@ export const MessagesProvider = ({ children }) => {
           console.log(`💾 Mensajes cargados desde caché para: ${conversationId}`);
         } else {
           console.log(`🌐 Mensajes cargados desde backend para: ${conversationId}`);
+
+          // console.log(`DADU> 📝 result:`, result);
+          // Actualizar datos del contacto con información del backend
+          if (result.name || result.phone || result.completed !== undefined) {
+
+            setContacts(prev => prev.map(contact => {
+              if (contact.id === conversationId) {
+                console.log(`DADU> 📝 CResult:`, result);
+                const updatedConversation = formatContactForUI(
+                  {
+                    ...contact.originalData,
+                    state: {
+                      nombre: result.name,
+                      telefono: result.phone,
+                      completed: result.completed,
+                    },
+                    conversation_mode: result.conversation_mode,
+                    updated_at: result.updated_at
+                  },
+                  {
+                    ...conversationMessages,
+                    [conversationId]: result.messages
+                  }
+                );
+                setSelectedConversation(updatedConversation);
+                return updatedConversation;
+              }
+              return contact;
+            }));
+
+            // setSelectedConversation(updatedConversation);
+            console.log(`📝 Contacto ${conversationId} actualizado con datos del backend`);
+          }
         }
       } else {
         // Marcar como error para evitar intentos futuros
@@ -126,7 +162,7 @@ export const MessagesProvider = ({ children }) => {
       // Quitar indicador de carga
       setLoadingMessages(prev => ({ ...prev, [conversationId]: false }));
     }
-  }, []); // Sin dependencias ya que usa solo setters estables
+  }, [conversationMessages]);
 
   /**
    * Formatea un mensaje para mostrar correctamente en la UI
@@ -142,8 +178,12 @@ export const MessagesProvider = ({ children }) => {
     };
   }, []);
 
+  const selectConversation = useCallback((conversation) => {
+    setSelectedConversation(conversation);
+  }, []);
+
   /**
-   * Actualiza los mensajes de una conversación con nuevos mensajes (para uso futuro con polling)
+   * Actualiza los mensajes de una conversación con nuevos mensajes con polling
    * @param {string} conversationId - ID de la conversación
    * @param {Array} newMessages - Array de mensajes nuevos del backend
    */
@@ -169,29 +209,14 @@ export const MessagesProvider = ({ children }) => {
         [conversationId]: [...currentMessages, ...uniqueNewMessages]
       };
     });
-
-    // Actualizar contactos con los nuevos mensajes
-    setContacts(prev => prev.map(contact => {
-      if (contact.id === conversationId) {
-        const updatedContact = formatContactForUI(contact.originalData, {
-          ...conversationMessages,
-          [conversationId]: [...(conversationMessages[conversationId] || []), ...newMessages]
-        });
-        return {
-          ...contact,
-          lastMessage: updatedContact.lastMessage
-        };
-      }
-      return contact;
-    }));
-  }, [formatMessageForUI, conversationMessages]); // Incluir la función de formateo como dependencia
+  }, [formatMessageForUI]);
 
   /**
    * Realiza polling para obtener mensajes nuevos de una conversación
    * @param {string} conversationId - ID de la conversación
    */
   const pollForNewMessages = useCallback(async (conversationId) => {
-    if (!conversationId) return;
+    if (!conversationId || contacts.length === 0) return;
 
     const waId = conversationId.replace('conv_', '');
     
@@ -218,12 +243,38 @@ export const MessagesProvider = ({ children }) => {
     try {
       console.log(`📡 Polling: ejecutando polling para ${conversationId}`);
       const result = await getRecentMessages(waId, lastMessageId);
+
+      const newMessages = result.data.messages;
       
-      if (result.success && result.data.messages && result.data.messages.length > 0) {
+      if (result.success && newMessages && newMessages.length > 0) {
         console.log(`📡 Polling: ${result.data.messages.length} mensajes nuevos para ${conversationId}`);
         
         // Actualizar mensajes usando la función existente
-        updateConversationWithNewMessages(conversationId, result.data.messages);
+        updateConversationWithNewMessages(conversationId, newMessages);
+
+        // Actualizar datos del contacto con nuevos mensajes y datos del estado
+        setContacts(prev => prev.map(contact => {
+          if (contact.id === conversationId) {
+            const updatedContact = formatContactForUI(
+              {
+                ...contact.originalData,
+                state: {
+                  ...result.data.lead_info, // Pasa los valores de nombre y teléfono del lead
+                  completed: result.data.completed,
+                },
+                conversation_mode: result.data.conversation_mode,
+                updated_at: result.data.updated_at
+              },
+              {
+                ...conversationMessages,
+                [conversationId]: [...(conversationMessages[conversationId] || []), ...newMessages]
+              }
+            );
+            setSelectedConversation(updatedContact);
+            return updatedContact;
+          }
+          return contact;
+        }));
         
         // Actualizar modo de conversación si cambió
         if (result.data.conversation_mode) {
@@ -247,7 +298,7 @@ export const MessagesProvider = ({ children }) => {
       console.error(`❌ Error en polling para ${conversationId}:`, error);
       // No hacer nada más para evitar que el polling cause problemas
     }
-  }, [conversationModes, updateConversationWithNewMessages]);
+  }, [conversationModes, updateConversationWithNewMessages, conversationMessages, contacts.length]);
 
   /**
    * Configura el sistema de polling para la conversación activa
@@ -425,19 +476,6 @@ export const MessagesProvider = ({ children }) => {
     };
   }, []);
 
-  // Debug: mostrar estadísticas cada 30 segundos en desarrollo
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      const debugInterval = setInterval(() => {
-        const debugInfo = getDebugInfo();
-        console.log('📊 [DEBUG] Estado del MessagesContext:', debugInfo);
-      }, 30000);
-
-      return () => clearInterval(debugInterval);
-    }
-  // eslint-disable-next-line
-  }, []);
-
   const value = {
     // Estado
     conversationMessages,
@@ -447,6 +485,7 @@ export const MessagesProvider = ({ children }) => {
     conversationModes,
     contacts,
     loadingContacts,
+    selectedConversation,
     
     // Acciones
     loadConversationMessages,
@@ -458,7 +497,8 @@ export const MessagesProvider = ({ children }) => {
     pollForNewMessages,
     clearAllMessages,
     loadRecentContacts,
-    
+    selectConversation,
+
     // Utilidades
     getDebugInfo
   };

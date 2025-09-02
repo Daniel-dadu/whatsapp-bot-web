@@ -36,7 +36,9 @@ export const getConversationMessages = async (conversationId) => {
         messages: formattedMessages,
         totalMessages: formattedMessages.length,
         conversationMode: result.data.conversation_mode,
-        fromBackend: true
+        name: result.data.lead_info.nombre,
+        phone: result.data.lead_info.telefono,
+        completed: result.data.completed
       };
     } else {
       console.warn(`⚠️ Backend falló para ${conversationId}, usando fallback local`);
