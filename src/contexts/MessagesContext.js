@@ -97,13 +97,11 @@ export const MessagesProvider = ({ children }) => {
         } else {
           console.log(`🌐 Mensajes cargados desde backend para: ${conversationId}`);
 
-          // console.log(`DADU> 📝 result:`, result);
           // Actualizar datos del contacto con información del backend
           if (result.name || result.phone || result.completed !== undefined) {
 
             setContacts(prev => prev.map(contact => {
               if (contact.id === conversationId) {
-                console.log(`DADU> 📝 CResult:`, result);
                 const updatedConversation = formatContactForUI(
                   {
                     ...contact.originalData,
@@ -112,7 +110,7 @@ export const MessagesProvider = ({ children }) => {
                       telefono: result.phone,
                       completed: result.completed,
                     },
-                    conversation_mode: result.conversation_mode,
+                    conversation_mode: result.conversationMode,
                     updated_at: result.updated_at
                   },
                   {
@@ -353,7 +351,7 @@ export const MessagesProvider = ({ children }) => {
     if (conversationId && !conversationMessages[conversationId] && !errorMessages[conversationId]) {
       await loadConversationMessages(conversationId);
       // Configurar polling después de cargar los mensajes
-      setTimeout(() => setupPolling(conversationId), 1000);
+      setupPolling(conversationId);
     } else {
       // Si ya hay mensajes, configurar polling inmediatamente
       setupPolling(conversationId);
@@ -386,6 +384,17 @@ export const MessagesProvider = ({ children }) => {
           ...prev,
           [conversationId]: mode
         }));
+
+        // Actualizar datos del contacto con el nuevo modo
+        setContacts(prev => prev.map(contact => {
+          if (contact.id === conversationId) {
+            return { ...contact, conversationMode: mode };
+          }
+          return contact;
+        }));
+
+        // Actualizar la conversación seleccionada con el nuevo modo
+        setSelectedConversation(prev => ({ ...prev, conversationMode: mode }));
         
         console.log(`✅ Modo cambiado exitosamente a: ${mode}`);
         return { success: true, data: result.data };
