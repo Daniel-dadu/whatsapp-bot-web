@@ -8,12 +8,6 @@ let conversationsCache = new Map();
 let failedConversationsCache = new Set();
 
 /**
- * IMPORTANTE: Este JSON contiene TODAS las conversaciones para simular el backend.
- * En producción, cada request debería devolver únicamente UNA conversación específica.
- * Este enfoque global es solo para efectos de demostración y testing.
- */
-
-/**
  * Obtiene los mensajes de una conversación específica desde el endpoint real
  * @param {string} conversationId - ID de la conversación
  * @returns {Promise} - Promesa que resuelve con los mensajes de la conversación
@@ -46,7 +40,14 @@ export const getConversationMessages = async (conversationId) => {
       };
     } else {
       console.warn(`⚠️ Backend falló para ${conversationId}, usando fallback local`);
-      return await getConversationMessagesLocal(conversationId);
+      return {
+        success: false,
+        conversationId,
+        messages: [],
+        error: 'Error al obtener conversación',
+        fromCache: true,
+        previouslyFailed: true
+      };
     }
     
   } catch (error) {
@@ -110,23 +111,6 @@ export const getCachedConversationMessages = async (conversationId, forceRefresh
 };
 
 /**
- * Simula el polling para verificar nuevos mensajes en una conversación activa
- * @param {string} conversationId - ID de la conversación activa
- */
-export const pollConversationUpdates = (conversationId) => {
-  console.log(`🔄 [POLLING] Verificando actualizaciones para conversación: ${conversationId}`);
-  
-  // NOTA: En producción, esto haría una llamada al backend para verificar:
-  // - Nuevos mensajes
-  // - Cambios en el estado de entrega/lectura
-  // - Actualizaciones del estado de la conversación
-  
-  // Por ahora solo mostramos el log para verificar que el polling funciona
-  // En el futuro, aquí se podría hacer:
-  // return fetch(`/api/conversations/${conversationId}/updates?since=${lastUpdateTimestamp}`)
-};
-
-/**
  * Formatea un mensaje del backend (formato nuevo) para mostrar en la UI
  * @param {Object} message - Mensaje del endpoint /get-conversation
  * @returns {Object} - Mensaje formateado para la UI
@@ -159,48 +143,6 @@ const formatBackendMessageForUI = (message) => {
 
   return {
     id: message.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    text: message.text,
-    sender: getSenderType(message.sender),
-    messageDate: formatMessageDate(message.timestamp),
-    timestamp: formatTimestamp(message.timestamp),
-    originalTimestamp: message.timestamp,
-    originalSender: message.sender // Mantener sender original para referencia
-  };
-};
-
-/**
- * Formatea un mensaje del backend (formato local) para mostrar en la UI
- * @param {Object} message - Mensaje raw del backend local
- * @returns {Object} - Mensaje formateado para la UI
- */
-const formatMessageForUI = (message) => {
-  const getSenderType = (sender) => {
-    if (sender === 'lead') return 'contact';
-    if (sender === 'bot') return 'bot';
-    if (sender.startsWith('asesor_')) return 'human_agent';
-    return 'contact';
-  };
-
-  const formatTimestamp = (timestamp) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('es-MX', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    });
-  };
-
-  const formatMessageDate = (timestamp) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('es-MX', {
-      day: '2-digit',
-      month: '2-digit', 
-      year: 'numeric'
-    });
-  };
-
-  return {
-    id: message.id,
     text: message.text,
     sender: getSenderType(message.sender),
     messageDate: formatMessageDate(message.timestamp),

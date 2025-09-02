@@ -34,8 +34,11 @@ export const getRecentContacts = async () => {
     const endpoint = process.env.REACT_APP_GET_RECENT_LEADS_ENDPOINT;
     
     if (!endpoint) {
-      console.warn('REACT_APP_GET_RECENT_LEADS_ENDPOINT no está configurado, usando datos locales');
-      return getRecentContactsLocal();
+      console.warn('REACT_APP_GET_RECENT_LEADS_ENDPOINT no está configurado');
+      return {
+        success: false,
+        error: 'Error al obtener contactos'
+      };
     }
 
     console.log('📡 Obteniendo conversaciones recientes desde el backend...');
