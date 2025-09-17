@@ -5,8 +5,17 @@ import { formatContactForUI } from '../services/contactsService';
 
 const ConversationList = ({ onSelectConversation, selectedConversation }) => {
   const { logout } = useAuth();
-  const { contacts, loadingContacts, loadingMoreContacts, conversationMessages, probablyMoreContacts, loadNextContacts } = useMessages();
+  const { contacts, loadingContacts, loadingMoreContacts, conversationMessages, probablyMoreContacts, loadNextContacts, clearAllMessages } = useMessages();
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Función para manejar logout completo (limpiar auth + mensajes + polling)
+  const handleLogout = () => {
+    console.log('🚪 Iniciando logout completo...');
+    // Primero limpiar mensajes y detener polling
+    clearAllMessages();
+    // Luego hacer logout de autenticación
+    logout();
+  };
 
   // Actualizar contactos con los últimos mensajes reales cuando están disponibles
   const contactsWithUpdatedMessages = useMemo(() => {
@@ -37,7 +46,7 @@ const ConversationList = ({ onSelectConversation, selectedConversation }) => {
       <div className="bg-gray-50 p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
         <h2 className="text-lg font-semibold text-gray-800">Conversaciones</h2>
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="text-gray-500 hover:text-gray-700 p-2 rounded-md hover:bg-gray-200 transition-colors"
           title="Cerrar sesión"
         >
