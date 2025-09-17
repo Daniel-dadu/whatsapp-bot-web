@@ -4,7 +4,7 @@ import {
   clearConversationsCache,
   getCacheStats 
 } from '../services/messagesService';
-import { changeConversationMode, getRecentMessages, getRecentContacts } from '../services/apiService';
+import { changeConversationMode, getRecentMessages, getRecentContacts, getNextContacts } from '../services/apiService';
 import { formatContactForUI } from '../services/contactsService';
 
 const MessagesContext = createContext();
@@ -28,6 +28,9 @@ export const MessagesProvider = ({ children }) => {
   // Estado para manejar contactos
   const [contacts, setContacts] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  const [loadingMoreContacts, setLoadingMoreContacts] = useState(false);
+
+  const [probablyMoreContacts, setProbablyMoreContacts] = useState(false);
   
   // Estado para manejar la conversación seleccionada
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -42,7 +45,9 @@ export const MessagesProvider = ({ children }) => {
     try {
       const response = await getRecentContacts();
       if (response.success) {
-        const formattedContacts = response.data.map(lead => formatContactForUI(lead, conversationMessages));
+        setProbablyMoreContacts(response.data.has_more);
+        const formattedContacts = response.data.conversations.map(lead => formatContactForUI(lead, conversationMessages));
+        console.log('loadRecentContacts formattedContacts', formattedContacts);
         setContacts(formattedContacts);
       } else {
         console.error('Error al cargar contactos:', response.error);
@@ -54,6 +59,27 @@ export const MessagesProvider = ({ children }) => {
     }
   // eslint-disable-next-line
   }, []); // Remover conversationMessages de las dependencias para evitar re-renders
+
+  // Obtiene los contactos siguientes a partir de los IDs de las conversaciones actuales
+  // Se deben pasar los IDs de las conversaciones actuales y se obtiene hasta 10 conversaciones más
+  const loadNextContacts = useCallback(async () => {
+    setLoadingMoreContacts(true);
+    try {
+      const response = await getNextContacts(contacts.map(contact => contact.id));
+      if (response.success) {
+        console.log('loadNextContacts response.data', response.data);
+        setProbablyMoreContacts(response.data.has_more);
+        const formattedContacts = response.data.conversations.map(lead => formatContactForUI(lead, conversationMessages));
+        // Append the formatted contacts to the existing contacts
+        setContacts(prev => [...prev, ...formattedContacts]);
+      }
+    } catch (error) {
+      console.error('Error al cargar más contactos:', error);
+      setProbablyMoreContacts(false);
+    } finally {
+      setLoadingMoreContacts(false);
+    }
+  }, [contacts, conversationMessages]);
 
   /**
    * Carga los mensajes de una conversación específica
@@ -494,8 +520,9 @@ export const MessagesProvider = ({ children }) => {
     conversationModes,
     contacts,
     loadingContacts,
+    loadingMoreContacts,
     selectedConversation,
-    
+    probablyMoreContacts,
     // Acciones
     loadConversationMessages,
     setActiveConversation,
@@ -507,7 +534,7 @@ export const MessagesProvider = ({ children }) => {
     clearAllMessages,
     loadRecentContacts,
     selectConversation,
-
+    loadNextContacts,
     // Utilidades
     getDebugInfo
   };

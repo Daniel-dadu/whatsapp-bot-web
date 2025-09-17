@@ -5,7 +5,7 @@ import { formatContactForUI } from '../services/contactsService';
 
 const ConversationList = ({ onSelectConversation, selectedConversation }) => {
   const { logout } = useAuth();
-  const { contacts, loadingContacts, conversationMessages } = useMessages();
+  const { contacts, loadingContacts, loadingMoreContacts, conversationMessages, probablyMoreContacts, loadNextContacts } = useMessages();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Actualizar contactos con los últimos mensajes reales cuando están disponibles
@@ -73,49 +73,80 @@ const ConversationList = ({ onSelectConversation, selectedConversation }) => {
             <span className="ml-2 text-gray-600">Cargando contactos...</span>
           </div>
         ) : filteredContacts.length > 0 ? (
-          filteredContacts.map((contact) => (
-            <div
-              key={contact.id}
-              onClick={() => onSelectConversation(contact)}
-              className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                selectedConversation?.id === contact.id ? 'bg-green-50 border-l-4 border-l-green-500' : ''
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                {/* Avatar */}
-                <div className="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center font-semibold text-sm">
-                  {contact.avatar}
-                </div>
-                
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-900 truncate">
-                      {contact.name}
-                    </h3>
-                    <span className="text-xs text-gray-500">
-                      {contact.timestamp}
-                    </span>
+          <>
+            {filteredContacts.map((contact) => (
+              <div
+                key={contact.id}
+                onClick={() => onSelectConversation(contact)}
+                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                  selectedConversation?.id === contact.id ? 'bg-green-50 border-l-4 border-l-green-500' : ''
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  {/* Avatar */}
+                  <div className="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                    {contact.avatar}
                   </div>
-                  <div className="mt-1">
-                    <p className="text-sm text-gray-600 truncate">
-                      {contact.lastMessage}
-                    </p>
-                  </div>
-                  {/* Indicator de estado */}
-                  <div className="flex items-center mt-1 space-x-2">
-                    <span className={`inline-block w-2 h-2 rounded-full ${
-                      contact.status === 'active' ? 'bg-green-400' : 
-                      contact.status === 'paused' ? 'bg-yellow-400' : 'bg-gray-400'
-                    }`}></span>
-                    <span className="text-xs text-gray-500">
-                      {contact.conversationMode === 'bot' ? '🤖 Bot' : '👤 Humano'}
-                    </span>
+                  
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-900 truncate">
+                        {contact.name}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {contact.timestamp}
+                      </span>
+                    </div>
+                    <div className="mt-1">
+                      <p className="text-sm text-gray-600 truncate">
+                        {contact.lastMessage}
+                      </p>
+                    </div>
+                    {/* Indicator de estado */}
+                    <div className="flex items-center mt-1 space-x-2">
+                      <span className={`inline-block w-2 h-2 rounded-full ${
+                        contact.status === 'active' ? 'bg-green-400' : 
+                        contact.status === 'paused' ? 'bg-yellow-400' : 'bg-gray-400'
+                      }`}></span>
+                      <span className="text-xs text-gray-500">
+                        {contact.conversationMode === 'bot' ? '🤖 Bot' : '👤 Humano'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+            
+            {/* Load More Button */}
+            {probablyMoreContacts && (
+              <div className="p-4 border-b border-gray-100">
+                <button
+                  onClick={() => loadNextContacts()}
+                  disabled={loadingMoreContacts}
+                  className={`w-full py-3 px-4 rounded-lg transition-colors font-medium text-sm flex items-center justify-center space-x-2 ${
+                    loadingMoreContacts 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+                >
+                  {loadingMoreContacts ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500"></div>
+                      <span>Cargando más conversaciones...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      <span>Cargar más conversaciones</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="flex items-center justify-center p-8 text-gray-500">
             <div className="text-center">

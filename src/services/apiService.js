@@ -264,3 +264,43 @@ export const getRecentMessages = async (waId, lastMessageId = null) => {
     };
   }
 };
+
+// Función para obtener contactos siguientes a partir de los IDs de las conversaciones actuales
+export const getNextContacts = async (currentConversationIds) => {
+  try {
+    const endpoint = process.env.REACT_APP_NEXT_CONVERSATIONS_ENDPOINT;
+
+    if (!endpoint) {
+      throw new Error('REACT_APP_NEXT_CONVERSATIONS_ENDPOINT no está configurado');
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        conversation_ids: currentConversationIds
+      })
+    });
+
+    const authResponse = await handleAuthResponse(response);
+    if (!authResponse) return { success: false, error: 'Token expirado' };
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      success: true,
+      data: data
+    };
+  } catch (error) {
+    console.error('Error al obtener contactos siguientes:', error);
+    return {
+      success: false,
+      error: error.message || 'Error al obtener contactos siguientes'
+    };
+  }
+};
