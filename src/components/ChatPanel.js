@@ -13,7 +13,8 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     setActiveConversation,
     getConversationMode,
     setConversationMode,
-    addMessageToConversation
+    addMessageToConversation,
+    markUserActivity
   } = useMessages();
 
   // Obtener mensajes de la conversación actual
@@ -86,6 +87,9 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
         // Agregar mensaje a la conversación solo después del éxito
         addMessageToConversation(selectedConversation.id, newMessage);
         
+        // Marcar actividad del usuario para reiniciar timeout
+        markUserActivity();
+        
         // Limpiar el input solo después del éxito
         setNewMessage('');
       } else {
@@ -112,6 +116,8 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
       
       if (result.success) {
         console.log(`✅ Modo cambiado exitosamente a: ${newMode}`);
+        // Marcar actividad del usuario para reiniciar timeout
+        markUserActivity();
       } else {
         console.error(`❌ Error al cambiar modo: ${result.error}`);
         // Aquí podrías mostrar una notificación de error al usuario

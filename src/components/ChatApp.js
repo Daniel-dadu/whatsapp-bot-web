@@ -6,7 +6,7 @@ import ChatPanel from './ChatPanel';
 
 const ChatApp = () => {
   const { isAuthenticated } = useAuth();
-  const { clearAllMessages, loadRecentContacts, selectedConversation, selectConversation } = useMessages();
+  const { clearAllMessages, loadRecentContacts, selectedConversation, selectConversation, markUserActivity } = useMessages();
   const [showMobileChat, setShowMobileChat] = useState(false);
 
   // Cargar contactos cuando el usuario está autenticado
@@ -28,6 +28,8 @@ const ChatApp = () => {
 
   const handleSelectConversation = (conversation) => {
     selectConversation(conversation);
+    // Marcar actividad del usuario para reiniciar timeout
+    markUserActivity();
     // En móvil, cambiar a la vista de chat cuando se selecciona una conversación
     setShowMobileChat(true);
   };

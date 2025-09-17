@@ -38,6 +38,10 @@ export const MessagesProvider = ({ children }) => {
   // Referencias para manejar el polling
   const pollingIntervalRef = useRef(null);
   const POLLING_INTERVAL = 15000; // 15 segundos
+  
+  // Referencias para manejar el timeout de inactividad
+  const inactivityTimeoutRef = useRef(null);
+  const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutos
 
   // Función para cargar contactos recientes
   const loadRecentContacts = useCallback(async () => {
@@ -325,6 +329,35 @@ export const MessagesProvider = ({ children }) => {
   }, [conversationModes, updateConversationWithNewMessages, conversationMessages, contacts.length]);
 
   /**
+   * Detiene el polling automáticamente después del timeout de inactividad
+   */
+  const stopPollingDueToInactivity = useCallback(() => {
+    console.log('⏰ Deteniendo polling por inactividad del usuario (5 minutos)');
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  }, []);
+  
+  /**
+   * Reinicia el timeout de inactividad
+   */
+  const resetInactivityTimeout = useCallback(() => {
+    // Limpiar timeout anterior
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+    }
+    
+    // Solo configurar timeout si hay polling activo
+    if (pollingIntervalRef.current) {
+      console.log('🔄 Reiniciando timeout de inactividad (5 minutos)');
+      inactivityTimeoutRef.current = setTimeout(() => {
+        stopPollingDueToInactivity();
+      }, INACTIVITY_TIMEOUT);
+    }
+  }, [stopPollingDueToInactivity, INACTIVITY_TIMEOUT]);
+  
+  /**
    * Configura el sistema de polling para la conversación activa
    * @param {string} conversationId - ID de la conversación para hacer polling
    */
@@ -347,7 +380,26 @@ export const MessagesProvider = ({ children }) => {
     pollingIntervalRef.current = setInterval(() => {
       pollForNewMessages(conversationId);
     }, POLLING_INTERVAL);
-  }, [pollForNewMessages]); // Depende de la función de polling
+    
+    // Iniciar timeout de inactividad
+    resetInactivityTimeout();
+  }, [pollForNewMessages, resetInactivityTimeout]); // Depende de la función de polling y timeout
+  
+  /**
+   * Marca actividad del usuario y reinicia el timeout
+   */
+  const markUserActivity = useCallback(() => {
+    console.log('👤 Actividad del usuario detectada');
+    
+    // Si hay una conversación activa pero el polling está detenido, reactivarlo
+    if (activeConversationId && !pollingIntervalRef.current) {
+      console.log('🔄 Reactivando polling por actividad del usuario');
+      setupPolling(activeConversationId);
+    } else {
+      // Solo reiniciar el timeout si el polling ya está activo
+      resetInactivityTimeout();
+    }
+  }, [activeConversationId, setupPolling, resetInactivityTimeout]);
   
   /**
    * Establece la conversación activa y maneja el polling
@@ -477,6 +529,12 @@ export const MessagesProvider = ({ children }) => {
       pollingIntervalRef.current = null;
     }
     
+    // Detener timeout de inactividad
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+      inactivityTimeoutRef.current = null;
+    }
+    
     // Limpiar estado local
     setConversationMessages({});
     setLoadingMessages({});
@@ -508,6 +566,9 @@ export const MessagesProvider = ({ children }) => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
+      if (inactivityTimeoutRef.current) {
+        clearTimeout(inactivityTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -535,6 +596,7 @@ export const MessagesProvider = ({ children }) => {
     loadRecentContacts,
     selectConversation,
     loadNextContacts,
+    markUserActivity,
     // Utilidades
     getDebugInfo
   };

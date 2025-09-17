@@ -5,7 +5,7 @@ import { formatContactForUI } from '../services/contactsService';
 
 const ConversationList = ({ onSelectConversation, selectedConversation }) => {
   const { logout } = useAuth();
-  const { contacts, loadingContacts, loadingMoreContacts, conversationMessages, probablyMoreContacts, loadNextContacts, clearAllMessages } = useMessages();
+  const { contacts, loadingContacts, loadingMoreContacts, conversationMessages, probablyMoreContacts, loadNextContacts, clearAllMessages, markUserActivity } = useMessages();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Función para manejar logout completo (limpiar auth + mensajes + polling)
@@ -15,6 +15,13 @@ const ConversationList = ({ onSelectConversation, selectedConversation }) => {
     clearAllMessages();
     // Luego hacer logout de autenticación
     logout();
+  };
+
+  // Función wrapper para loadNextContacts que marca actividad del usuario
+  const handleLoadNextContacts = async () => {
+    await loadNextContacts();
+    // Marcar actividad del usuario para reiniciar timeout
+    markUserActivity();
   };
 
   // Actualizar contactos con los últimos mensajes reales cuando están disponibles
@@ -131,7 +138,7 @@ const ConversationList = ({ onSelectConversation, selectedConversation }) => {
             {probablyMoreContacts && (
               <div className="p-4 border-b border-gray-100">
                 <button
-                  onClick={() => loadNextContacts()}
+                  onClick={handleLoadNextContacts}
                   disabled={loadingMoreContacts}
                   className={`w-full py-3 px-4 rounded-lg transition-colors font-medium text-sm flex items-center justify-center space-x-2 ${
                     loadingMoreContacts 
