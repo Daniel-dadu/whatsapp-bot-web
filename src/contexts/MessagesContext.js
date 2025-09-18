@@ -51,7 +51,6 @@ export const MessagesProvider = ({ children }) => {
       if (response.success) {
         setProbablyMoreContacts(response.data.has_more);
         const formattedContacts = response.data.conversations.map(lead => formatContactForUI(lead, conversationMessages));
-        console.log('loadRecentContacts formattedContacts', formattedContacts);
         setContacts(formattedContacts);
       } else {
         console.error('Error al cargar contactos:', response.error);
@@ -71,7 +70,6 @@ export const MessagesProvider = ({ children }) => {
     try {
       const response = await getNextContacts(contacts.map(contact => contact.id));
       if (response.success) {
-        console.log('loadNextContacts response.data', response.data);
         setProbablyMoreContacts(response.data.has_more);
         const formattedContacts = response.data.conversations.map(lead => formatContactForUI(lead, conversationMessages));
         // Append the formatted contacts to the existing contacts

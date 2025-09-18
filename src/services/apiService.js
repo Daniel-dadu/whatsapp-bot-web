@@ -66,8 +66,6 @@ export const getRecentContacts = async () => {
       };
     }
 
-    console.log('📡 Obteniendo conversaciones recientes desde el backend...');
-    
     const response = await fetch(endpoint, {
       method: 'GET',
       headers: getAuthHeaders()
@@ -82,8 +80,6 @@ export const getRecentContacts = async () => {
     }
 
     const data = await response.json();
-    
-    console.log('✅ Conversaciones obtenidas desde el backend:', data.length, 'conversaciones');
     
     return {
       success: true,
