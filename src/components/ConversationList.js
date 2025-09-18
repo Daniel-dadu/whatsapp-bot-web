@@ -24,9 +24,9 @@ const ConversationList = ({ onSelectConversation, selectedConversation }) => {
     markUserActivity();
   };
 
-  // Actualizar contactos con los últimos mensajes reales cuando están disponibles
+  // Actualizar contactos con los últimos mensajes reales cuando están disponibles y ordenarlos por updated_at
   const contactsWithUpdatedMessages = useMemo(() => {
-    return contacts.map(contact => {
+    const updatedContacts = contacts.map(contact => {
       // Re-formatear el contacto con los mensajes actuales
       const updatedContact = formatContactForUI(contact.originalData, conversationMessages);
       // Mantener propiedades que no se actualizan
@@ -35,9 +35,27 @@ const ConversationList = ({ onSelectConversation, selectedConversation }) => {
         lastMessage: updatedContact.lastMessage
       };
     });
+    
+    // Ordenar por updated_at (más reciente primero)
+    return updatedContacts.sort((a, b) => {
+      const updatedAtA = a.originalData?.updated_at;
+      const updatedAtB = b.originalData?.updated_at;
+      
+      // Si ambos tienen updated_at, ordenar por fecha descendente (más reciente primero)
+      if (updatedAtA && updatedAtB) {
+        return new Date(updatedAtB) - new Date(updatedAtA);
+      }
+      
+      // Si solo uno tiene updated_at, ponerlo primero
+      if (updatedAtA && !updatedAtB) return -1;
+      if (!updatedAtA && updatedAtB) return 1;
+      
+      // Si ninguno tiene updated_at, mantener orden original
+      return 0;
+    });
   }, [contacts, conversationMessages]);
 
-  // Filtrar contactos basado en el término de búsqueda
+  // Filtrar contactos basado en el término de búsqueda (ya están ordenados por updated_at)
   const filteredContacts = useMemo(() => {
     if (!searchTerm.trim()) return contactsWithUpdatedMessages;
     
