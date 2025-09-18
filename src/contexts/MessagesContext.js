@@ -400,6 +400,79 @@ export const MessagesProvider = ({ children }) => {
   }, [activeConversationId, setupPolling, resetInactivityTimeout]);
   
   /**
+   * Verifica mensajes recientes al abrir una conversación que ya está en caché
+   * @param {string} conversationId - ID de la conversación
+   */
+  const checkForRecentMessagesOnOpen = useCallback(async (conversationId) => {
+    if (!conversationId || !conversationMessages[conversationId]) return;
+
+    const waId = conversationId.replace('conv_', '');
+    const currentMessages = conversationMessages[conversationId] || [];
+    
+    // Si no hay mensajes cargados, no hacer nada
+    if (currentMessages.length === 0) {
+      console.log(`📡 Verificación omitida para ${conversationId} - no hay mensajes cargados`);
+      return;
+    }
+
+    const lastMessageId = currentMessages[currentMessages.length - 1].id;
+
+    try {
+      console.log(`📡 Verificando mensajes recientes al abrir conversación: ${conversationId}`);
+      const result = await getRecentMessages(waId, lastMessageId);
+
+      const newMessages = result.data.messages;
+      
+      if (result.success && newMessages && newMessages.length > 0) {
+        console.log(`📡 Conversación abierta: ${result.data.messages.length} mensajes nuevos para ${conversationId}`);
+        
+        // Actualizar mensajes usando la función existente
+        updateConversationWithNewMessages(conversationId, newMessages);
+
+        // Actualizar datos del contacto con nuevos mensajes y datos del estado
+        setContacts(prev => prev.map(contact => {
+          if (contact.id === conversationId) {
+            const updatedContact = formatContactForUI(
+              {
+                ...contact.originalData,
+                state: {
+                  ...result.data.lead_info, // Pasa los valores de nombre y teléfono del lead
+                  completed: result.data.completed,
+                },
+                conversation_mode: result.data.conversation_mode,
+                updated_at: result.data.updated_at
+              },
+              {
+                ...conversationMessages,
+                [conversationId]: [...(conversationMessages[conversationId] || []), ...newMessages]
+              }
+            );
+            setSelectedConversation(updatedContact);
+            return updatedContact;
+          }
+          return contact;
+        }));
+        
+        // Actualizar modo de conversación si cambió
+        if (result.data.conversation_mode) {
+          const currentMode = conversationModes[conversationId];
+          if (currentMode !== result.data.conversation_mode) {
+            setConversationModes(prev => ({
+              ...prev,
+              [conversationId]: result.data.conversation_mode
+            }));
+          }
+        }
+      } else if (result.success) {
+        console.log(`📡 Conversación abierta: no hay mensajes nuevos para ${conversationId}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error al verificar mensajes recientes para ${conversationId}:`, error);
+      // No hacer nada más para evitar que cause problemas
+    }
+  }, [conversationMessages, updateConversationWithNewMessages, conversationModes]);
+
+  /**
    * Establece la conversación activa y maneja el polling
    * @param {string} conversationId - ID de la conversación activa
    * @param {Object} conversationData - Datos completos de la conversación (opcional)
@@ -428,12 +501,17 @@ export const MessagesProvider = ({ children }) => {
       await loadConversationMessages(conversationId);
       // Configurar polling después de cargar los mensajes
       setupPolling(conversationId);
+    } else if (conversationId && conversationMessages[conversationId]) {
+      // Si ya hay mensajes en caché, obtener mensajes recientes antes de configurar polling
+      await checkForRecentMessagesOnOpen(conversationId);
+      // Configurar polling después de verificar mensajes recientes
+      setupPolling(conversationId);
     } else {
       // Si ya hay mensajes, configurar polling inmediatamente
       setupPolling(conversationId);
     }
   // eslint-disable-next-line
-  }, [conversationMessages, errorMessages, loadConversationMessages, setupPolling]); // Incluir dependencias necesarias
+  }, [conversationMessages, errorMessages, loadConversationMessages, setupPolling, checkForRecentMessagesOnOpen]); // Incluir dependencias necesarias
 
   /**
    * Cambia el modo de conversación (bot/agente)
