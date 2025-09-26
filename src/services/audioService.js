@@ -2,6 +2,7 @@
  * Servicio para manejar archivos de audio de WhatsApp
  * Obtiene archivos de audio desde la API de WhatsApp Business
  */
+import fetch from "cross-fetch";
 
 /**
  * Obtiene la información del archivo multimedia desde WhatsApp API
@@ -59,7 +60,8 @@ export const getWhatsAppAudioFile = async (mediaUrl) => {
     const response = await fetch(mediaUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
+        "User-Agent": "node",
       }
     });
 
