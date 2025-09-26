@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { getWhatsAppAudio, cleanupAudioUrl, formatFileSize, formatDuration } from '../services/audioService';
+
+import { getWhatsAppAudio } from '../services/apiService';
 
 const AudioPlayer = ({ multimediaId, sender }) => {
   const [audioData, setAudioData] = useState(null);
@@ -7,7 +8,6 @@ const AudioPlayer = ({ multimediaId, sender }) => {
   const [error, setError] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   
   const audioRef = useRef(null);
@@ -17,45 +17,15 @@ const AudioPlayer = ({ multimediaId, sender }) => {
     if (multimediaId) {
       loadAudio();
     }
-
-    // Cleanup al desmontar
-    return () => {
-      if (audioData?.url) {
-        cleanupAudioUrl(audioData.url);
-      }
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [multimediaId]);
-
-  // Actualizar el tiempo actual del audio
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const updateTime = () => setCurrentTime(audio.currentTime);
-    const updateDuration = () => {
-      setDuration(audio.duration);
-      setIsLoaded(true);
-    };
-    const handleEnded = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
-
-    audio.addEventListener('timeupdate', updateTime);
-    audio.addEventListener('loadedmetadata', updateDuration);
-    audio.addEventListener('ended', handleEnded);
-
-    return () => {
-      audio.removeEventListener('timeupdate', updateTime);
-      audio.removeEventListener('loadedmetadata', updateDuration);
-      audio.removeEventListener('ended', handleEnded);
-    };
-  }, [audioData]);
 
   const loadAudio = async () => {
     setIsLoading(true);
     setError(null);
+    // Reiniciar estados para una nueva carga de audio
+    setIsLoaded(false);
+    setCurrentTime(0);
 
     try {
       const result = await getWhatsAppAudio(multimediaId);
@@ -89,24 +59,40 @@ const AudioPlayer = ({ multimediaId, sender }) => {
     }
   };
 
-  const handleSeek = (e) => {
-    const audio = audioRef.current;
-    if (!audio || !duration) return;
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const newTime = (clickX / rect.width) * duration;
+  const handleLoadedMetadata = () => {
+    setIsLoaded(true);
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    // Opcional: regresar el tiempo al inicio al terminar
+    if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        setCurrentTime(0);
+    }
+  };
+
+  /**
+ * Formatea el tamaño del archivo en formato legible
+ * @param {number} bytes - Tamaño en bytes
+ * @returns {string} - Tamaño formateado
+ */
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return '0 Bytes';
     
-    audio.currentTime = newTime;
-    setCurrentTime(newTime);
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getProgressPercentage = () => {
-    if (!duration) return 0;
-    return (currentTime / duration) * 100;
-  };
-
-  // Estilos basados en el remitente
   const getPlayerStyles = () => {
     const baseStyles = "flex items-center space-x-3 p-3 rounded-lg max-w-sm";
     
@@ -124,26 +110,6 @@ const AudioPlayer = ({ multimediaId, sender }) => {
       return `${baseStyles} bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white`;
     } else {
       return `${baseStyles} bg-gray-100 hover:bg-gray-200 focus:ring-gray-500 text-gray-700`;
-    }
-  };
-
-  const getProgressStyles = () => {
-    const baseStyles = "flex-1 h-2 rounded-full cursor-pointer";
-    
-    if (sender === 'bot' || sender === 'human_agent') {
-      return `${baseStyles} bg-blue-300`;
-    } else {
-      return `${baseStyles} bg-gray-200`;
-    }
-  };
-
-  const getProgressBarStyles = () => {
-    const baseStyles = "h-full rounded-full transition-all duration-200";
-    
-    if (sender === 'bot' || sender === 'human_agent') {
-      return `${baseStyles} bg-white`;
-    } else {
-      return `${baseStyles} bg-green-500`;
     }
   };
 
@@ -190,13 +156,16 @@ const AudioPlayer = ({ multimediaId, sender }) => {
         ref={audioRef}
         src={audioData.url}
         preload="metadata"
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={handleEnded}
       />
       
       {/* Play/Pause button */}
       <button
         onClick={togglePlayPause}
         className={getButtonStyles()}
-        disabled={!isLoaded}
+        disabled={!isLoaded} // Deshabilitado hasta que los metadatos carguen
         title={isPlaying ? 'Pausar' : 'Reproducir'}
       >
         {isPlaying ? (
@@ -210,21 +179,11 @@ const AudioPlayer = ({ multimediaId, sender }) => {
         )}
       </button>
 
-      {/* Progress bar and info */}
+      {/* Audio info */}
       <div className="flex-1 min-w-0">
-        <div 
-          className={getProgressStyles()}
-          onClick={handleSeek}
-        >
-          <div 
-            className={getProgressBarStyles()}
-            style={{ width: `${getProgressPercentage()}%` }}
-          />
-        </div>
-        
-        <div className="flex items-center justify-between mt-1">
+        <div className="flex items-center justify-between">
           <span className="text-xs opacity-75">
-            {formatDuration(currentTime)} / {formatDuration(duration)}
+            {Math.floor(currentTime)}s
           </span>
           {audioData.fileSize && (
             <span className="text-xs opacity-75">
