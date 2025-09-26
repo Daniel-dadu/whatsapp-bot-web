@@ -24,6 +24,7 @@ const AudioPlayer = ({ multimediaId, sender }) => {
         cleanupAudioUrl(audioData.url);
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [multimediaId]);
 
   // Actualizar el tiempo actual del audio
