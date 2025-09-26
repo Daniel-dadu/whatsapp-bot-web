@@ -151,7 +151,8 @@ const formatBackendMessageForUI = (message) => {
     messageDate: formatMessageDate(message.timestamp),
     timestamp: formatTimestamp(message.timestamp),
     originalTimestamp: message.timestamp,
-    originalSender: message.sender // Mantener sender original para referencia
+    originalSender: message.sender, // Mantener sender original para referencia
+    multimedia: message.multimedia || null // Incluir información multimedia
   };
 };
 

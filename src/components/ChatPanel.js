@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMessages } from '../contexts/MessagesContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import { sendAgentMessage } from '../services/apiService';
+import AudioPlayer from './AudioPlayer';
 
 const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -203,11 +204,30 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                     : 'bg-white text-gray-800 border border-gray-200'
                 }`}
               >
-                <p className="text-sm">
-                  {message.sender === 'bot' && '🤖 '}
-                  {message.sender === 'human_agent' && '👤 '}
-                  {message.text}
-                </p>
+                {/* Mostrar reproductor de audio si el mensaje contiene multimedia de audio */}
+                {message.multimedia && message.multimedia.type === 'audio' ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm">
+                        {message.sender === 'bot' && '🤖 '}
+                        {message.sender === 'human_agent' && '👤 '}
+                        🎵 Audio
+                      </span>
+                    </div>
+                    <AudioPlayer 
+                      multimediaId={message.multimedia.multimedia_id} 
+                      sender={message.sender}
+                    />
+                  </div>
+                ) : (
+                  /* Mostrar texto normal si no hay multimedia */
+                  <p className="text-sm">
+                    {message.sender === 'bot' && '🤖 '}
+                    {message.sender === 'human_agent' && '👤 '}
+                    {message.text}
+                  </p>
+                )}
+                
                 <div className="flex items-center justify-between mt-1">
                   {/* Mostrar hora del mensaje */}
                   <p className={`text-xs ${

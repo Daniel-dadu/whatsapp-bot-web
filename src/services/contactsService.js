@@ -18,9 +18,15 @@ export const formatContactForUI = (lead, conversationMessages = {}) => {
         
         // Truncar el mensaje si es muy largo
         const maxLength = 50;
-        const truncatedText = lastMessage.text.length > maxLength 
-          ? lastMessage.text.substring(0, maxLength) + '...'
-          : lastMessage.text;
+        let truncatedText = '';
+        if (lastMessage.text) {
+          truncatedText = lastMessage.text.length > maxLength 
+            ? lastMessage.text.substring(0, maxLength) + '...'
+            : lastMessage.text;
+        } else {
+          truncatedText = 'Mensaje multimedia';
+        }
+
         
         // Agregar indicador de quién envió el mensaje
         const senderPrefix = lastMessage.sender === 'me' ? 'Tú: ' : '';
