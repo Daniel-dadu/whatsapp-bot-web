@@ -3,6 +3,7 @@ import { useMessages } from '../contexts/MessagesContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import { sendAgentMessage } from '../services/apiService';
 import AudioPlayer from './AudioPlayer';
+import ImageMessage from './ImageMessage';
 
 const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -219,6 +220,13 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                       sender={message.sender}
                     />
                   </div>
+                ) : message.multimedia && message.multimedia.type === 'image' ? (
+                  /* Mostrar imagen si el mensaje contiene multimedia de imagen */
+                  <ImageMessage 
+                    multimediaId={message.multimedia.multimedia_id}
+                    caption={message.multimedia.caption}
+                    sender={message.sender}
+                  />
                 ) : (
                   /* Mostrar texto normal si no hay multimedia */
                   <p className="text-sm">

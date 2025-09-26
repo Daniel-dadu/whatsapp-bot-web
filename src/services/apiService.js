@@ -361,3 +361,63 @@ export const getWhatsAppAudio = async (multimediaId) => {
     };
   }
 };
+
+/**
+ * Obtiene una imagen desde el endpoint personalizado
+ * @param {string} multimediaId - ID del archivo multimedia
+ * @returns {Promise<Object>} - URL de la imagen para visualización
+ */
+export const getWhatsAppImage = async (multimediaId) => {
+  try {
+    const endpoint = process.env.REACT_APP_GET_MULTIMEDIA_ENDPOINT;
+    
+    if (!endpoint) {
+      throw new Error('REACT_APP_GET_MULTIMEDIA_ENDPOINT no está configurado');
+    }
+
+    // Construir URL con el ID del multimedia como query parameter
+    const url = `${endpoint}&id=${multimediaId}`;
+
+    const token = localStorage.getItem('access_token');
+
+    // Hacer una petición HEAD para verificar que el archivo existe y obtener metadatos
+    const headResponse = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      redirect: 'follow'
+    });
+
+    if (!headResponse.ok) {
+      throw new Error(`HTTP ${headResponse.status}: ${headResponse.statusText}`);
+    }
+
+    // Obtener información del archivo desde los headers
+    const contentType = headResponse.headers.get('content-type') || 'image/jpeg';
+    const contentLength = headResponse.headers.get('content-length');
+    
+    // Verificar que sea un archivo de imagen
+    if (!contentType.startsWith('image/')) {
+      return {
+        success: false,
+        error: 'El archivo no es de tipo imagen'
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        url: url, // URL directa para visualización
+        mimeType: contentType,
+        fileSize: contentLength ? parseInt(contentLength) : null
+      }
+    };
+  } catch (error) {
+    console.error('Error al obtener imagen:', error);
+    return {
+      success: false,
+      error: error.message || 'Error al obtener imagen'
+    };
+  }
+};
