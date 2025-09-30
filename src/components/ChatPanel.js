@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMessages } from '../contexts/MessagesContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
-import { sendAgentMessage } from '../services/apiService';
+import { sendAgentMessage, uploadImageToFacebook } from '../services/apiService';
 import AudioPlayer from './AudioPlayer';
 import ImageMessage from './ImageMessage';
 import VideoMessage from './VideoMessage';
@@ -9,7 +9,11 @@ import VideoMessage from './VideoMessage';
 const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
   const { 
     conversationMessages, 
     loadingMessages, 
@@ -58,6 +62,114 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
       scrollToBottom();
     }
   }, [messages.length, selectedConversation?.id, isLoadingCurrentConversation]);
+
+  // Función para validar archivo de imagen
+  const validateImageFile = (file) => {
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    
+    if (!allowedTypes.includes(file.type)) {
+      return { valid: false, error: 'Solo se permiten archivos JPG y PNG' };
+    }
+    
+    if (file.size > maxSize) {
+      return { valid: false, error: 'El archivo no puede ser mayor a 5MB' };
+    }
+    
+    return { valid: true };
+  };
+
+  // Función para manejar selección de imagen
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+    
+    setSelectedImage(file);
+    
+    // Crear preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Función para limpiar imagen seleccionada
+  const clearSelectedImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Función para enviar imagen
+  const handleSendImage = async () => {
+    if (!selectedImage || currentMode === 'bot' || isUploadingImage) return;
+    
+    const waId = selectedConversation.id.replace('conv_', '');
+    console.log('🎯 ChatPanel: ID de la conversación:', waId);
+    setIsUploadingImage(true);
+    
+    try {
+      console.log('📤 Subiendo imagen a Facebook...');
+      
+      const uploadResult = await uploadImageToFacebook(selectedImage);
+
+      if (uploadResult.success) {
+        console.log('✅ Imagen subida exitosamente:', uploadResult.data);
+
+        const multimedia = {
+          type: 'image',
+          multimedia_id: uploadResult.data.id
+        };
+
+        const sendResult = await sendAgentMessage(waId, '', multimedia);
+      
+        if (sendResult.success) {
+          console.log('✅ Imagen enviada al lead exitosamente:', sendResult.data);
+
+          // Crear mensaje con la imagen
+          const newMessage = {
+            id: sendResult.data.message_id_sent,
+            sender: 'human_agent',
+            text: '',
+            timestamp: new Date(sendResult.data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            messageDate: new Date(sendResult.data.timestamp).toLocaleDateString(),
+            delivered: true,
+            read: false,
+            multimedia: multimedia
+          };
+          
+          // Agregar mensaje a la conversación
+          addMessageToConversation(selectedConversation.id, newMessage);
+        } else {
+          console.error('❌ Error al enviar imagen:', sendResult.error);
+          alert('Error al enviar la imagen: ' + sendResult.error);
+        }
+        
+        // Marcar actividad del usuario
+        markUserActivity();
+        
+        // Limpiar imagen seleccionada
+        clearSelectedImage();
+      } else {
+        console.error('❌ Error al subir imagen:', uploadResult.error);
+        alert('Error al subir la imagen: ' + uploadResult.error);
+      }
+    } catch (error) {
+      console.error('❌ Error inesperado al subir imagen:', error);
+      alert('Error inesperado al subir la imagen');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -294,6 +406,56 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
         </div>
       )}
       
+      {/* Image preview */}
+      {imagePreview && (
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="w-16 h-16 object-cover rounded-lg border border-gray-300"
+              />
+              <button
+                onClick={clearSelectedImage}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                title="Eliminar imagen"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600">
+                {selectedImage?.name} ({(selectedImage?.size / 1024 / 1024).toFixed(2)} MB)
+              </p>
+              <p className="text-xs text-gray-500">Lista para enviar</p>
+            </div>
+            <button
+              onClick={handleSendImage}
+              disabled={currentMode === 'bot' || isUploadingImage}
+              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+            >
+              {isUploadingImage ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Subiendo...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  <span>Enviar</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Message input */}
       <div className="p-4 border-t border-gray-200 bg-white">
         <form onSubmit={handleSendMessage} className="flex space-x-2">
@@ -316,6 +478,30 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
               {currentMode === 'agente' ? 'Bot' : 'Humano'}
             </span>
           </button>
+
+          {/* Botón de subir imagen - solo visible en modo agente */}
+          {currentMode === 'agente' && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || isUploadingImage}
+              className="bg-purple-500 text-white p-2 rounded-full hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Subir imagen"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
+          )}
+
+          {/* Input de archivo oculto */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
           
           <input
             type="text"

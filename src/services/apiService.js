@@ -135,7 +135,7 @@ export const getConversation = async (waId) => {
 };
 
 // Función para enviar mensaje del agente usando el endpoint real
-export const sendAgentMessage = async (waId, message) => {
+export const sendAgentMessage = async (waId, message, multimedia = null) => {
   try {
     const endpoint = process.env.REACT_APP_SEND_AGENT_MESSAGE_ENDPOINT;
     
@@ -143,13 +143,19 @@ export const sendAgentMessage = async (waId, message) => {
       throw new Error('REACT_APP_SEND_AGENT_MESSAGE_ENDPOINT no está configurado');
     }
 
+    let body = {
+      wa_id: waId,
+      message: message
+    };
+
+    if (multimedia) {
+      body.multimedia = multimedia;
+    }
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({
-        wa_id: waId,
-        message: message
-      })
+      body: JSON.stringify(body)
     });
 
     const authResponse = await handleAuthResponse(response);
@@ -478,6 +484,52 @@ export const getWhatsAppVideo = async (multimediaId) => {
     return {
       success: false,
       error: error.message || 'Error al obtener video'
+    };
+  }
+};
+
+/**
+ * Sube una imagen a Facebook Graph API para WhatsApp
+ * @param {File} imageFile - Archivo de imagen a subir
+ * @returns {Promise<Object>} - Respuesta de la API de Facebook
+ */
+export const uploadImageToFacebook = async (imageFile) => {
+  try {
+    const whatsappToken = process.env.REACT_APP_WHATSAPP_TOKEN;
+    
+    if (!whatsappToken) {
+      throw new Error('REACT_APP_WHATSAPP_TOKEN no está configurado');
+    }
+
+    // Crear FormData para la subida
+    const formData = new FormData();
+    formData.append('messaging_product', 'whatsapp');
+    formData.append('file', imageFile, imageFile.name);
+
+    const response = await fetch('https://graph.facebook.com/v23.0/727590133774756/media', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappToken}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      success: true,
+      data: data
+    };
+  } catch (error) {
+    console.error('Error al subir imagen a Facebook:', error);
+    return {
+      success: false,
+      error: error.message || 'Error al subir imagen'
     };
   }
 };
