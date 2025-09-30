@@ -496,6 +496,7 @@ export const getWhatsAppVideo = async (multimediaId) => {
 export const uploadImageToFacebook = async (imageFile) => {
   try {
     const whatsappToken = process.env.REACT_APP_WHATSAPP_TOKEN;
+    const phoneNumberId = process.env.REACT_APP_PHONE_NUMBER_ID;
     
     if (!whatsappToken) {
       throw new Error('REACT_APP_WHATSAPP_TOKEN no está configurado');
@@ -506,7 +507,7 @@ export const uploadImageToFacebook = async (imageFile) => {
     formData.append('messaging_product', 'whatsapp');
     formData.append('file', imageFile, imageFile.name);
 
-    const response = await fetch('https://graph.facebook.com/v23.0/727590133774756/media', {
+    const response = await fetch(`https://graph.facebook.com/v23.0/${phoneNumberId}/media`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${whatsappToken}`
@@ -530,6 +531,71 @@ export const uploadImageToFacebook = async (imageFile) => {
     return {
       success: false,
       error: error.message || 'Error al subir imagen'
+    };
+  }
+};
+
+/**
+ * Sube un archivo de audio a Facebook Graph API para WhatsApp
+ * @param {Blob} audioBlob - Archivo de audio a subir
+ * @returns {Promise<Object>} - Respuesta de la API de Facebook
+ */
+export const uploadAudioToFacebook = async (audioBlob) => {
+  try {
+    const whatsappToken = process.env.REACT_APP_WHATSAPP_TOKEN;
+    const phoneNumberId = process.env.REACT_APP_PHONE_NUMBER_ID;
+    
+    if (!whatsappToken) {
+      throw new Error('REACT_APP_WHATSAPP_TOKEN no está configurado');
+    }
+
+    if (!phoneNumberId) {
+      throw new Error('REACT_APP_PHONE_NUMBER_ID no está configurado');
+    }
+
+    // Determinar el nombre del archivo basado en el tipo MIME
+    const getFileName = (mimeType) => {
+      if (mimeType.includes('ogg')) return 'audio.ogg';
+      if (mimeType.includes('mp4')) return 'audio.mp4';
+      if (mimeType.includes('mpeg')) return 'audio.mp3';
+      if (mimeType.includes('aac')) return 'audio.aac';
+      if (mimeType.includes('amr')) return 'audio.amr';
+      return 'audio.webm'; // fallback
+    };
+
+    const fileName = getFileName(audioBlob.type);
+    console.log(`📤 Subiendo audio como: ${fileName} (${audioBlob.type})`);
+
+    // Crear FormData para la subida
+    const formData = new FormData();
+    formData.append('messaging_product', 'whatsapp');
+    formData.append('file', audioBlob, fileName);
+    formData.append('type', 'audio');
+
+    const response = await fetch(`https://graph.facebook.com/v23.0/${phoneNumberId}/media`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappToken}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      success: true,
+      data: data
+    };
+  } catch (error) {
+    console.error('Error al subir audio a Facebook:', error);
+    return {
+      success: false,
+      error: error.message || 'Error al subir audio'
     };
   }
 };

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMessages } from '../contexts/MessagesContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
-import { sendAgentMessage, uploadImageToFacebook } from '../services/apiService';
+import { sendAgentMessage, uploadImageToFacebook, uploadAudioToFacebook } from '../services/apiService';
 import AudioPlayer from './AudioPlayer';
 import ImageMessage from './ImageMessage';
 import VideoMessage from './VideoMessage';
+import AudioRecorder from './AudioRecorder';
 
 const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -12,6 +13,8 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const { 
@@ -169,6 +172,71 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     } finally {
       setIsUploadingImage(false);
     }
+  };
+
+  // Función para enviar audio
+  const handleSendAudio = async (audioBlob) => {
+    if (!audioBlob || currentMode === 'bot' || isUploadingAudio) return;
+    
+    const waId = selectedConversation.id.replace('conv_', '');
+    console.log('🎯 ChatPanel: Enviando audio, ID de la conversación:', waId);
+    setIsUploadingAudio(true);
+    
+    try {
+      console.log('📤 Subiendo audio a Facebook...');
+      
+      const uploadResult = await uploadAudioToFacebook(audioBlob);
+
+      if (uploadResult.success) {
+        console.log('✅ Audio subido exitosamente:', uploadResult.data);
+
+        const multimedia = {
+          type: 'audio',
+          multimedia_id: uploadResult.data.id
+        };
+
+        const sendResult = await sendAgentMessage(waId, '', multimedia);
+      
+        if (sendResult.success) {
+          console.log('✅ Audio enviado al lead exitosamente:', sendResult.data);
+
+          // Crear mensaje con el audio
+          const newMessage = {
+            id: sendResult.data.message_id_sent,
+            sender: 'human_agent',
+            text: '',
+            timestamp: new Date(sendResult.data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            messageDate: new Date(sendResult.data.timestamp).toLocaleDateString(),
+            delivered: true,
+            read: false,
+            multimedia: multimedia
+          };
+          
+          // Agregar mensaje a la conversación
+          addMessageToConversation(selectedConversation.id, newMessage);
+        } else {
+          console.error('❌ Error al enviar audio:', sendResult.error);
+          alert('Error al enviar el audio: ' + sendResult.error);
+        }
+        
+        // Marcar actividad del usuario
+        markUserActivity();
+      } else {
+        console.error('❌ Error al subir audio:', uploadResult.error);
+        alert('Error al subir el audio: ' + uploadResult.error);
+      }
+    } catch (error) {
+      console.error('❌ Error inesperado al subir audio:', error);
+      alert('Error inesperado al subir el audio');
+    } finally {
+      setIsUploadingAudio(false);
+      setShowAudioRecorder(false);
+    }
+  };
+
+  // Función para cancelar grabación de audio
+  const handleCancelAudio = () => {
+    setShowAudioRecorder(false);
   };
 
   const handleSendMessage = async (e) => {
@@ -494,6 +562,21 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             </button>
           )}
 
+          {/* Botón de grabar audio - solo visible en modo agente */}
+          {currentMode === 'agente' && (
+            <button
+              type="button"
+              onClick={() => setShowAudioRecorder(true)}
+              disabled={isLoading || isUploadingAudio}
+              className="bg-orange-500 text-white p-2 rounded-full hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Grabar audio"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            </button>
+          )}
+
           {/* Input de archivo oculto */}
           <input
             ref={fileInputRef}
@@ -526,6 +609,13 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
           </button>
         </form>
       </div>
+
+      {/* Audio Recorder Modal */}
+      <AudioRecorder
+        isVisible={showAudioRecorder}
+        onSend={handleSendAudio}
+        onCancel={handleCancelAudio}
+      />
     </div>
   );
 };
