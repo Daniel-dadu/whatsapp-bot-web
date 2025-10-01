@@ -20,7 +20,6 @@ const AudioRecorder = ({ onSend, onCancel, isVisible }) => {
   const getCompatibleAudioType = () => {
     const types = [
       'audio/ogg; codecs=opus',
-      'audio/ogg',
       'audio/mp4',
       'audio/mpeg',
       'audio/aac',

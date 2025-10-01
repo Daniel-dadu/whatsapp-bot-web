@@ -15,8 +15,11 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showAudioRecorder, setShowAudioRecorder] = useState(false);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+  const [selectedAudioFile, setSelectedAudioFile] = useState(null);
+  const [audioPreview, setAudioPreview] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const audioFileInputRef = useRef(null);
   const { 
     conversationMessages, 
     loadingMessages, 
@@ -82,6 +85,38 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     return { valid: true };
   };
 
+  // Función para validar archivo de audio
+  const validateAudioFile = (file) => {
+    const maxSize = 16 * 1024 * 1024; // 16MB (límite de WhatsApp)
+    const allowedTypes = [
+      'audio/ogg; codecs=opus',
+      'audio/mp4',
+      'audio/mpeg',
+      'audio/aac',
+      'audio/amr',
+      'audio/mp3',
+    ];
+    
+    // Validar por tipo MIME y extensión
+    const isValidType = allowedTypes.includes(file.type) || 
+                       file.name.toLowerCase().match(/\.(aac|amr|mp3|mp4|ogg)$/);
+    
+    if (!isValidType) {
+      return { valid: false, error: 'Solo se permiten archivos de audio en formatos: AAC, AMR, MP3, MP4, OGG (OPUS codecs only)' };
+    }
+    
+    // Validación especial para archivos OGG - solo permitir OPUS
+    if (file.type === 'audio/ogg' && !file.type.includes('codecs=opus')) {
+      return { valid: false, error: 'Los archivos OGG deben usar codecs OPUS únicamente' };
+    }
+    
+    if (file.size > maxSize) {
+      return { valid: false, error: 'El archivo de audio no puede ser mayor a 16MB' };
+    }
+    
+    return { valid: true };
+  };
+
   // Función para manejar selección de imagen
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -109,6 +144,36 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     setImagePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  // Función para manejar selección de archivo de audio
+  const handleAudioFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const validation = validateAudioFile(file);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+    
+    setSelectedAudioFile(file);
+    
+    // Crear preview de audio
+    const audioUrl = URL.createObjectURL(file);
+    setAudioPreview(audioUrl);
+  };
+
+  // Función para limpiar archivo de audio seleccionado
+  const clearSelectedAudioFile = () => {
+    setSelectedAudioFile(null);
+    if (audioPreview) {
+      URL.revokeObjectURL(audioPreview);
+      setAudioPreview(null);
+    }
+    if (audioFileInputRef.current) {
+      audioFileInputRef.current.value = '';
     }
   };
 
@@ -237,6 +302,68 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   // Función para cancelar grabación de audio
   const handleCancelAudio = () => {
     setShowAudioRecorder(false);
+  };
+
+  // Función para enviar archivo de audio
+  const handleSendAudioFile = async () => {
+    if (!selectedAudioFile || currentMode === 'bot' || isUploadingAudio) return;
+    
+    const waId = selectedConversation.id.replace('conv_', '');
+    console.log('🎯 ChatPanel: Enviando archivo de audio, ID de la conversación:', waId);
+    setIsUploadingAudio(true);
+    
+    try {
+      console.log('📤 Subiendo archivo de audio a Facebook...');
+      
+      const uploadResult = await uploadAudioToFacebook(selectedAudioFile);
+
+      if (uploadResult.success) {
+        console.log('✅ Archivo de audio subido exitosamente:', uploadResult.data);
+
+        const multimedia = {
+          type: 'audio',
+          multimedia_id: uploadResult.data.id
+        };
+
+        const sendResult = await sendAgentMessage(waId, '', multimedia);
+      
+        if (sendResult.success) {
+          console.log('✅ Archivo de audio enviado al lead exitosamente:', sendResult.data);
+
+          // Crear mensaje con el audio
+          const newMessage = {
+            id: sendResult.data.message_id_sent,
+            sender: 'human_agent',
+            text: '',
+            timestamp: new Date(sendResult.data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            messageDate: new Date(sendResult.data.timestamp).toLocaleDateString(),
+            delivered: true,
+            read: false,
+            multimedia: multimedia
+          };
+          
+          // Agregar mensaje a la conversación
+          addMessageToConversation(selectedConversation.id, newMessage);
+        } else {
+          console.error('❌ Error al enviar archivo de audio:', sendResult.error);
+          alert('Error al enviar el archivo de audio: ' + sendResult.error);
+        }
+        
+        // Marcar actividad del usuario
+        markUserActivity();
+        
+        // Limpiar archivo de audio seleccionado
+        clearSelectedAudioFile();
+      } else {
+        console.error('❌ Error al subir archivo de audio:', uploadResult.error);
+        alert('Error al subir el archivo de audio: ' + uploadResult.error);
+      }
+    } catch (error) {
+      console.error('❌ Error inesperado al subir archivo de audio:', error);
+      alert('Error inesperado al subir el archivo de audio');
+    } finally {
+      setIsUploadingAudio(false);
+    }
   };
 
   const handleSendMessage = async (e) => {
@@ -524,6 +651,59 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
         </div>
       )}
 
+      {/* Audio file preview */}
+      {audioPreview && (
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <div className="w-16 h-16 bg-blue-100 rounded-lg border border-gray-300 flex items-center justify-center">
+                <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+              </div>
+              <button
+                onClick={clearSelectedAudioFile}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                title="Eliminar archivo de audio"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600">
+                {selectedAudioFile?.name} ({(selectedAudioFile?.size / 1024 / 1024).toFixed(2)} MB)
+              </p>
+              <p className="text-xs text-gray-500">Listo para enviar</p>
+              <audio controls className="w-full mt-2" src={audioPreview}>
+                Tu navegador no soporta el elemento de audio.
+              </audio>
+            </div>
+            <button
+              onClick={handleSendAudioFile}
+              disabled={currentMode === 'bot' || isUploadingAudio}
+              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+            >
+              {isUploadingAudio ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Subiendo...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  <span>Enviar</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Message input */}
       <div className="p-4 border-t border-gray-200 bg-white">
         <form onSubmit={handleSendMessage} className="flex space-x-2">
@@ -577,12 +757,36 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             </button>
           )}
 
+          {/* Botón de subir archivo de audio - solo visible en modo agente */}
+          {currentMode === 'agente' && (
+            <button
+              type="button"
+              onClick={() => audioFileInputRef.current?.click()}
+              disabled={isLoading || isUploadingAudio}
+              className="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Subir archivo de audio"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </button>
+          )}
+
           {/* Input de archivo oculto */}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/jpg,image/png"
             onChange={handleImageSelect}
+            className="hidden"
+          />
+
+          {/* Input de archivo de audio oculto */}
+          <input
+            ref={audioFileInputRef}
+            type="file"
+            accept=".aac,.amr,.mp3,.ogg,audio/ogg; codecs=opus,audio/mp4,audio/mpeg,audio/aac,audio/amr,audio/mp3"
+            onChange={handleAudioFileSelect}
             className="hidden"
           />
           
