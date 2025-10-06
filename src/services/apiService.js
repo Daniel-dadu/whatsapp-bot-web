@@ -607,6 +607,60 @@ export const uploadImageToFacebook = async (imageFile) => {
 };
 
 /**
+ * Sube un documento a Facebook Graph API para WhatsApp
+ * @param {File} documentFile - Archivo de documento a subir
+ * @returns {Promise<Object>} - Respuesta de la API de Facebook
+ */
+export const uploadDocumentToFacebook = async (documentFile) => {
+  try {
+    const whatsappToken = process.env.REACT_APP_WHATSAPP_TOKEN;
+    const phoneNumberId = process.env.REACT_APP_PHONE_NUMBER_ID;
+    
+    if (!whatsappToken) {
+      throw new Error('REACT_APP_WHATSAPP_TOKEN no está configurado');
+    }
+
+    if (!phoneNumberId) {
+      throw new Error('REACT_APP_PHONE_NUMBER_ID no está configurado');
+    }
+
+    console.log(`📤 Subiendo documento: ${documentFile.name} (${documentFile.type})`);
+
+    // Crear FormData para la subida
+    const formData = new FormData();
+    formData.append('messaging_product', 'whatsapp');
+    formData.append('file', documentFile, documentFile.name);
+    formData.append('type', 'document');
+
+    const response = await fetch(`https://graph.facebook.com/v23.0/${phoneNumberId}/media`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappToken}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      success: true,
+      data: data
+    };
+  } catch (error) {
+    console.error('Error al subir documento a Facebook:', error);
+    return {
+      success: false,
+      error: error.message || 'Error al subir documento'
+    };
+  }
+};
+
+/**
  * Sube un archivo de audio a Facebook Graph API para WhatsApp
  * @param {Blob} audioBlob - Archivo de audio a subir
  * @returns {Promise<Object>} - Respuesta de la API de Facebook

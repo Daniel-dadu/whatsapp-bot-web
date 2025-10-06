@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMessages } from '../contexts/MessagesContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
-import { sendAgentMessage, uploadImageToFacebook, uploadAudioToFacebook } from '../services/apiService';
+import { sendAgentMessage, uploadImageToFacebook, uploadAudioToFacebook, uploadDocumentToFacebook } from '../services/apiService';
 import AudioPlayer from './AudioPlayer';
 import ImageMessage from './ImageMessage';
 import VideoMessage from './VideoMessage';
@@ -18,9 +18,12 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [selectedAudioFile, setSelectedAudioFile] = useState(null);
   const [audioPreview, setAudioPreview] = useState(null);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const audioFileInputRef = useRef(null);
+  const documentInputRef = useRef(null);
   const { 
     conversationMessages, 
     loadingMessages, 
@@ -118,6 +121,39 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     return { valid: true };
   };
 
+  // Función para validar archivo de documento
+  const validateDocumentFile = (file) => {
+    const maxSize = 100 * 1024 * 1024; // 100MB (límite de WhatsApp para documentos)
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+      'text/csv',
+      'application/zip',
+      'application/x-rar-compressed',
+      'application/x-7z-compressed'
+    ];
+    
+    // Validar por tipo MIME y extensión
+    const isValidType = allowedTypes.includes(file.type) || 
+                       file.name.toLowerCase().match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|rar|7z)$/);
+    
+    if (!isValidType) {
+      return { valid: false, error: 'Solo se permiten documentos en formatos: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV, ZIP, RAR, 7Z' };
+    }
+    
+    if (file.size > maxSize) {
+      return { valid: false, error: 'El documento no puede ser mayor a 100MB' };
+    }
+    
+    return { valid: true };
+  };
+
   // Función para manejar selección de imagen
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -175,6 +211,28 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     }
     if (audioFileInputRef.current) {
       audioFileInputRef.current.value = '';
+    }
+  };
+
+  // Función para manejar selección de documento
+  const handleDocumentSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const validation = validateDocumentFile(file);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+    
+    setSelectedDocument(file);
+  };
+
+  // Función para limpiar documento seleccionado
+  const clearSelectedDocument = () => {
+    setSelectedDocument(null);
+    if (documentInputRef.current) {
+      documentInputRef.current.value = '';
     }
   };
 
@@ -303,6 +361,68 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   // Función para cancelar grabación de audio
   const handleCancelAudio = () => {
     setShowAudioRecorder(false);
+  };
+
+  // Función para enviar documento
+  const handleSendDocument = async () => {
+    if (!selectedDocument || currentMode === 'bot' || isUploadingDocument) return;
+    
+    const waId = selectedConversation.id.replace('conv_', '');
+    console.log('🎯 ChatPanel: Enviando documento, ID de la conversación:', waId);
+    setIsUploadingDocument(true);
+    
+    try {
+      console.log('📤 Subiendo documento a Facebook...');
+      
+      const uploadResult = await uploadDocumentToFacebook(selectedDocument);
+
+      if (uploadResult.success) {
+        console.log('✅ Documento subido exitosamente:', uploadResult.data);
+
+        const multimedia = {
+          type: 'document',
+          multimedia_id: uploadResult.data.id
+        };
+
+        const sendResult = await sendAgentMessage(waId, '', multimedia);
+      
+        if (sendResult.success) {
+          console.log('✅ Documento enviado al lead exitosamente:', sendResult.data);
+
+          // Crear mensaje con el documento
+          const newMessage = {
+            id: sendResult.data.message_id_sent,
+            sender: 'human_agent',
+            text: '',
+            timestamp: new Date(sendResult.data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            messageDate: new Date(sendResult.data.timestamp).toLocaleDateString(),
+            delivered: true,
+            read: false,
+            multimedia: multimedia
+          };
+          
+          // Agregar mensaje a la conversación
+          addMessageToConversation(selectedConversation.id, newMessage);
+        } else {
+          console.error('❌ Error al enviar documento:', sendResult.error);
+          alert('Error al enviar el documento: ' + sendResult.error);
+        }
+        
+        // Marcar actividad del usuario
+        markUserActivity();
+        
+        // Limpiar documento seleccionado
+        clearSelectedDocument();
+      } else {
+        console.error('❌ Error al subir documento:', uploadResult.error);
+        alert('Error al subir el documento: ' + uploadResult.error);
+      }
+    } catch (error) {
+      console.error('❌ Error inesperado al subir documento:', error);
+      alert('Error inesperado al subir el documento');
+    } finally {
+      setIsUploadingDocument(false);
+    }
   };
 
   // Función para enviar archivo de audio
@@ -712,6 +832,56 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
         </div>
       )}
 
+      {/* Document preview */}
+      {selectedDocument && (
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <div className="w-16 h-16 bg-gray-100 rounded-lg border border-gray-300 flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 3h8a2 2 0 012 2v4h-3a2 2 0 00-2 2v3H7a2 2 0 01-2-2V5a2 2 0 012-2zm5 10l4 4m0 0l4-4m-4 4V9" />
+                </svg>
+              </div>
+              <button
+                onClick={clearSelectedDocument}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                title="Eliminar documento"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600">
+                {selectedDocument?.name} ({(selectedDocument?.size / 1024 / 1024).toFixed(2)} MB)
+              </p>
+              <p className="text-xs text-gray-500">Listo para enviar</p>
+            </div>
+            <button
+              onClick={handleSendDocument}
+              disabled={currentMode === 'bot' || isUploadingDocument}
+              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+            >
+              {isUploadingDocument ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Subiendo...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  <span>Enviar</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Message input */}
       <div className="p-4 border-t border-gray-200 bg-white">
         <form onSubmit={handleSendMessage} className="flex space-x-2">
@@ -781,6 +951,22 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             </button>
           )}
 
+          {/* Botón de subir documento - solo visible en modo agente */}
+          {currentMode === 'agente' && (
+            <button
+              type="button"
+              onClick={() => documentInputRef.current?.click()}
+              disabled={isLoading || isUploadingDocument}
+              className="bg-orange-500 text-white px-3 py-2 rounded-full hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              title="Subir documento"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 3h8a2 2 0 012 2v4h-3a2 2 0 00-2 2v3H7a2 2 0 01-2-2V5a2 2 0 012-2zm5 10l4 4m0 0l4-4m-4 4V9" />
+              </svg>
+              <span className="text-sm font-medium">Documento</span>
+            </button>
+          )}
+
           {/* Input de archivo oculto */}
           <input
             ref={fileInputRef}
@@ -796,6 +982,15 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             type="file"
             accept=".aac,.amr,.mp3,.ogg,audio/ogg; codecs=opus,audio/mp4,audio/mpeg,audio/aac,audio/amr,audio/mp3"
             onChange={handleAudioFileSelect}
+            className="hidden"
+          />
+
+          {/* Input de documento oculto */}
+          <input
+            ref={documentInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv,application/zip,application/x-rar-compressed,application/x-7z-compressed"
+            onChange={handleDocumentSelect}
             className="hidden"
           />
           
