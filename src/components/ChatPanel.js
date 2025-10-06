@@ -6,6 +6,7 @@ import AudioPlayer from './AudioPlayer';
 import ImageMessage from './ImageMessage';
 import VideoMessage from './VideoMessage';
 import AudioRecorder from './AudioRecorder';
+import DocumentMessage from './DocumentMessage';
 
 const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -538,6 +539,13 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                 ) : message.multimedia && message.multimedia.type === 'video' ? (
                   /* Mostrar video si el mensaje contiene multimedia de video */
                   <VideoMessage 
+                    multimediaId={message.multimedia.multimedia_id}
+                    caption={message.multimedia.caption}
+                    sender={message.sender}
+                  />
+                ) : message.multimedia && message.multimedia.type === 'document' ? (
+                  /* Mostrar documento si el mensaje contiene multimedia de documento */
+                  <DocumentMessage
                     multimediaId={message.multimedia.multimedia_id}
                     caption={message.multimedia.caption}
                     sender={message.sender}

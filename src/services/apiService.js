@@ -489,6 +489,77 @@ export const getWhatsAppVideo = async (multimediaId) => {
 };
 
 /**
+ * Obtiene un documento desde el endpoint personalizado
+ * @param {string} multimediaId - ID del archivo multimedia
+ * @returns {Promise<Object>} - URL del documento para descarga
+ */
+export const getWhatsAppDocument = async (multimediaId) => {
+  try {
+    const endpoint = process.env.REACT_APP_GET_MULTIMEDIA_ENDPOINT;
+    
+    if (!endpoint) {
+      throw new Error('REACT_APP_GET_MULTIMEDIA_ENDPOINT no está configurado');
+    }
+
+    // Construir URL con el ID del multimedia como query parameter
+    const url = `${endpoint}&id=${multimediaId}`;
+
+    const token = localStorage.getItem('access_token');
+
+    // Solicitud para obtener metadatos del archivo
+    const headResponse = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      redirect: 'follow'
+    });
+
+    if (!headResponse.ok) {
+      throw new Error(`HTTP ${headResponse.status}: ${headResponse.statusText}`);
+    }
+
+    const contentType = headResponse.headers.get('content-type') || 'application/octet-stream';
+    const contentLength = headResponse.headers.get('content-length');
+    const contentDisposition = headResponse.headers.get('content-disposition');
+
+    // Intentar extraer nombre de archivo del header Content-Disposition
+    let fileName = null;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+      if (match) {
+        fileName = decodeURIComponent(match[1] || match[2] || '').trim();
+      }
+    }
+
+    // Para documentos permitimos tipos comunes no multimedia (audio/image/video)
+    const isMedia = contentType.startsWith('audio/') || contentType.startsWith('image/') || contentType.startsWith('video/');
+    if (isMedia) {
+      return {
+        success: false,
+        error: 'El archivo no es de tipo documento'
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        url: url, // URL directa para descarga
+        mimeType: contentType,
+        fileSize: contentLength ? parseInt(contentLength) : null,
+        fileName: fileName || undefined
+      }
+    };
+  } catch (error) {
+    console.error('Error al obtener documento:', error);
+    return {
+      success: false,
+      error: error.message || 'Error al obtener documento'
+    };
+  }
+};
+
+/**
  * Sube una imagen a Facebook Graph API para WhatsApp
  * @param {File} imageFile - Archivo de imagen a subir
  * @returns {Promise<Object>} - Respuesta de la API de Facebook
