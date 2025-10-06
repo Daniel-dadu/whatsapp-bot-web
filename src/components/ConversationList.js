@@ -60,8 +60,8 @@ const ConversationList = ({ onSelectConversation, selectedConversation }) => {
     if (!searchTerm.trim()) return contactsWithUpdatedMessages;
     
     return contactsWithUpdatedMessages.filter(contact =>
-      contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.phone.includes(searchTerm)
+      (contact.name && contact.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (contact.phone && contact.phone.includes(searchTerm))
     );
   }, [contactsWithUpdatedMessages, searchTerm]);
 
