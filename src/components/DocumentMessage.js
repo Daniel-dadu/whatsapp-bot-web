@@ -177,7 +177,7 @@ const DocumentMessage = ({ multimediaId, caption, sender }) => {
             </div>
             <div className="text-xs opacity-75">
               {docData.fileSize ? formatFileSize(docData.fileSize) : ''}
-              {docData.mimeType ? ` · ${docData.mimeType}` : ''}
+              {docData.mimeType ? docData.mimeType === 'application/pdf' ? ` · PDF` : docData.mimeType === 'application/msword' ? ` · WORD` : docData.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ? ` · WORD` : docData.mimeType === 'application/vnd.ms-excel' ? ` · XLS` : docData.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ? ` · XLSX` : docData.mimeType === 'application/vnd.ms-powerpoint' ? ` · PPT` : docData.mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ? ` · PPTX` : docData.mimeType.startsWith('text/plain') ? ` · TXT` : docData.mimeType === 'text/csv' ? ` · CSV` : docData.mimeType === 'application/zip' ? ` · ZIP` : docData.mimeType === 'application/x-rar-compressed' ? ` · RAR` : docData.mimeType === 'application/x-7z-compressed' ? ` · 7Z` : ` · ${docData.mimeType}` : ''}
             </div>
           </div>
 
