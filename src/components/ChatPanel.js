@@ -557,6 +557,12 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const handleToggleMode = async () => {
     if (!selectedConversation || isLoading) return;
     
+    // Solo permitir cambiar de bot a humano, no de humano a bot
+    if (currentMode === 'agente') {
+      console.log('🚫 No se puede cambiar de modo humano a bot');
+      return;
+    }
+    
     const newMode = currentMode === 'bot' ? 'agente' : 'bot';
     
     setIsLoading(true);
@@ -908,19 +914,19 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
           <button
             type="button"
             onClick={handleToggleMode}
-            disabled={isLoading}
+            disabled={isLoading || currentMode === 'agente'}
             className={`flex items-center space-x-1 px-3 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
               currentMode === 'agente'
-              ? 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-500'
+              ? 'bg-gray-400 text-white cursor-not-allowed'
               : 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500'
             } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            title={`Cambiar a modo ${currentMode === 'agente' ? 'bot' : 'humano'}`}
+            title={currentMode === 'agente' ? 'Modo humano activo - No se puede cambiar a bot' : 'Cambiar a modo humano'}
           >
             <span className="text-base">
-              {currentMode === 'agente' ? '🤖' : '👤'}
+              {currentMode === 'agente' ? '👤' : '🤖'}
             </span>
             <span className="hidden sm:inline">
-              {currentMode === 'agente' ? 'Bot' : 'Humano'}
+              {currentMode === 'agente' ? 'Humano' : 'Bot'}
             </span>
           </button>
 
