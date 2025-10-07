@@ -78,6 +78,18 @@ const AudioPlayer = ({ multimediaId, sender }) => {
     }
   };
 
+  const handleDownload = () => {
+    if (audioData && audioData.url) {
+      // Create a temporary link element to trigger download
+      const link = document.createElement('a');
+      link.href = audioData.url;
+      link.download = `audio_${multimediaId}.mp3`; // Default filename with multimediaId
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   /**
  * Formatea el tamaño del archivo en formato legible
  * @param {number} bytes - Tamaño en bytes
@@ -177,6 +189,18 @@ const AudioPlayer = ({ multimediaId, sender }) => {
             <path d="M8 5v14l11-7z"/>
           </svg>
         )}
+      </button>
+
+      {/* Download button */}
+      <button
+        onClick={handleDownload}
+        className={getButtonStyles()}
+        disabled={!audioData || !audioData.url}
+        title="Descargar audio"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
       </button>
 
       {/* Audio info */}

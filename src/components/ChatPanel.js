@@ -1006,7 +1006,7 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                       setShowAudioRecorder(true);
                       setShowFileUploadPopover(false);
                     }}
-                    disabled={true}
+                    disabled={false}
                     className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-400 cursor-not-allowed rounded-md transition-colors"
                     title="Grabar audio (deshabilitado)"
                   >
