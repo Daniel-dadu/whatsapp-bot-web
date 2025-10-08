@@ -602,7 +602,7 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   }
 
   return (
-    <div className="h-full bg-white flex flex-col">
+    <div className="h-full bg-white flex flex-col relative">
       {/* Header */}
       <div className="bg-gray-50 p-4 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -1007,8 +1007,8 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                       setShowFileUploadPopover(false);
                     }}
                     disabled={false}
-                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-400 cursor-not-allowed rounded-md transition-colors"
-                    title="Grabar audio (deshabilitado)"
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-md transition-colors"
+                    title="Grabar audio"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
