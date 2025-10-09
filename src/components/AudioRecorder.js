@@ -185,7 +185,7 @@ const AudioRecorder = ({ onSend, onCancel, isVisible }) => {
         <div className="bg-gray-50 rounded-lg p-4 w-96 shadow-lg border border-gray-200 pointer-events-auto">
         <div className="text-center">
           <h3 className="text-base font-semibold text-gray-800 mb-3">
-            {isRecording ? 'Grabando audio...' : 'Iniciando grabación...'}
+            {isRecording ? 'Grabando audio...' : 'Procesando grabación...'}
           </h3>
           
           <div className="mb-4">
@@ -201,7 +201,7 @@ const AudioRecorder = ({ onSend, onCancel, isVisible }) => {
                 <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
-                <p className="text-xs">Iniciando grabación...</p>
+                <p className="text-xs">Procesando grabación...</p>
               </div>
             )}
           </div>
