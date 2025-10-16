@@ -43,7 +43,11 @@ export const MessagesProvider = ({ children }) => {
   const contactsPollingIntervalRef = useRef(null);
   const CONTACTS_POLLING_INTERVAL = 60 * 1000; // 1 minuto
   
-  // Referencias para manejar el timeout de inactividad
+  // Referencias para manejar el timeout de inactividad de contactos
+  const contactsInactivityTimeoutRef = useRef(null);
+  const CONTACTS_INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutos
+  
+  // Referencias para manejar el timeout de inactividad de mensajes
   const inactivityTimeoutRef = useRef(null);
   const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutos
 
@@ -123,6 +127,35 @@ export const MessagesProvider = ({ children }) => {
   }, [conversationMessages]);
 
   /**
+   * Detiene el polling de contactos automáticamente después del timeout de inactividad
+   */
+  const stopContactsPollingDueToInactivity = useCallback(() => {
+    console.log('⏰ Deteniendo polling de contactos por inactividad del usuario (10 minutos)');
+    if (contactsPollingIntervalRef.current) {
+      clearInterval(contactsPollingIntervalRef.current);
+      contactsPollingIntervalRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Reinicia el timeout de inactividad de contactos
+   */
+  const resetContactsInactivityTimeout = useCallback(() => {
+    // Limpiar timeout anterior
+    if (contactsInactivityTimeoutRef.current) {
+      clearTimeout(contactsInactivityTimeoutRef.current);
+    }
+    
+    // Solo configurar timeout si hay polling de contactos activo
+    if (contactsPollingIntervalRef.current) {
+      console.log('🔄 Reiniciando timeout de inactividad de contactos (10 minutos)');
+      contactsInactivityTimeoutRef.current = setTimeout(() => {
+        stopContactsPollingDueToInactivity();
+      }, CONTACTS_INACTIVITY_TIMEOUT);
+    }
+  }, [stopContactsPollingDueToInactivity, CONTACTS_INACTIVITY_TIMEOUT]);
+
+  /**
    * Inicia el polling de contactos
    */
   const startContactsPolling = useCallback(() => {
@@ -138,7 +171,10 @@ export const MessagesProvider = ({ children }) => {
     contactsPollingIntervalRef.current = setInterval(() => {
       pollForRecentContacts();
     }, CONTACTS_POLLING_INTERVAL);
-  }, [pollForRecentContacts, CONTACTS_POLLING_INTERVAL]);
+    
+    // Iniciar timeout de inactividad
+    resetContactsInactivityTimeout();
+  }, [pollForRecentContacts, CONTACTS_POLLING_INTERVAL, resetContactsInactivityTimeout]);
 
   /**
    * Detiene el polling de contactos
@@ -518,7 +554,16 @@ export const MessagesProvider = ({ children }) => {
       // Solo reiniciar el timeout si el polling ya está activo
       resetInactivityTimeout();
     }
-  }, [activeConversationId, setupPolling, resetInactivityTimeout]);
+    
+    // Si el polling de contactos está detenido, reactivarlo
+    if (!contactsPollingIntervalRef.current) {
+      console.log('🔄 Reactivando polling de contactos por actividad del usuario');
+      startContactsPolling();
+    } else {
+      // Solo reiniciar el timeout si el polling de contactos ya está activo
+      resetContactsInactivityTimeout();
+    }
+  }, [activeConversationId, setupPolling, resetInactivityTimeout, startContactsPolling, resetContactsInactivityTimeout]);
   
   /**
    * Verifica mensajes recientes al abrir una conversación que ya está en caché
@@ -768,7 +813,13 @@ export const MessagesProvider = ({ children }) => {
       contactsPollingIntervalRef.current = null;
     }
     
-    // Detener timeout de inactividad
+    // Detener timeout de inactividad de contactos
+    if (contactsInactivityTimeoutRef.current) {
+      clearTimeout(contactsInactivityTimeoutRef.current);
+      contactsInactivityTimeoutRef.current = null;
+    }
+    
+    // Detener timeout de inactividad de mensajes
     if (inactivityTimeoutRef.current) {
       clearTimeout(inactivityTimeoutRef.current);
       inactivityTimeoutRef.current = null;
@@ -810,6 +861,9 @@ export const MessagesProvider = ({ children }) => {
       if (contactsPollingIntervalRef.current) {
         clearInterval(contactsPollingIntervalRef.current);
       }
+      if (contactsInactivityTimeoutRef.current) {
+        clearTimeout(contactsInactivityTimeoutRef.current);
+      }
       if (inactivityTimeoutRef.current) {
         clearTimeout(inactivityTimeoutRef.current);
       }
@@ -845,6 +899,8 @@ export const MessagesProvider = ({ children }) => {
     startContactsPolling,
     stopContactsPolling,
     pollForRecentContacts,
+    resetContactsInactivityTimeout,
+    stopContactsPollingDueToInactivity,
     // Utilidades
     getDebugInfo
   };
