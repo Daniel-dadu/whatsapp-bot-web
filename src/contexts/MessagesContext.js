@@ -34,6 +34,9 @@ export const MessagesProvider = ({ children }) => {
   
   // Estado para manejar la conversación seleccionada
   const [selectedConversation, setSelectedConversation] = useState(null);
+  
+  // Estado para manejar notificaciones de contactos
+  const [contactNotifications, setContactNotifications] = useState({});
 
   // Referencias para manejar el polling
   const pollingIntervalRef = useRef(null);
@@ -92,8 +95,47 @@ export const MessagesProvider = ({ children }) => {
           // Identificar contactos nuevos (que no están en la lista actual)
           const newContactIds = newContacts.filter(contact => !currentContactsMap.has(contact.id));
           
+          // Identificar contactos con updated_at cambiado
+          const updatedContacts = [];
+          prev.forEach(currentContact => {
+            const newContact = newContactsMap.get(currentContact.id);
+            if (newContact && currentContact.originalData?.updated_at !== newContact.originalData?.updated_at) {
+              console.log("DADU: Updated contact: ", newContact.id);
+              console.log("DADU: Current contact updated_at: ", currentContact.originalData?.updated_at);
+              console.log("DADU: New contact updated_at: ", newContact.originalData?.updated_at);
+              updatedContacts.push(newContact.id);
+            }
+          });
+          
+          // Mostrar notificaciones
           if (newContactIds.length > 0) {
             console.log(`🆕 Polling de contactos: ${newContactIds.length} nuevas conversaciones encontradas`);
+            // Agregar notificaciones para nuevos contactos
+            setContactNotifications(prevNotifications => {
+              const newNotifications = { ...prevNotifications };
+              newContactIds.forEach(contact => {
+                newNotifications[contact.id] = {
+                  type: 'new_contact',
+                  timestamp: Date.now()
+                };
+              });
+              return newNotifications;
+            });
+          }
+          
+          if (updatedContacts.length > 0) {
+            console.log(`🔄 Polling de contactos: ${updatedContacts.length} conversaciones con updated_at cambiado`);
+            // Agregar notificaciones para contactos actualizados
+            setContactNotifications(prevNotifications => {
+              const newNotifications = { ...prevNotifications };
+              updatedContacts.forEach(contactId => {
+                newNotifications[contactId] = {
+                  type: 'updated_contact',
+                  timestamp: Date.now()
+                };
+              });
+              return newNotifications;
+            });
           }
           
           // Mantener el orden del endpoint: usar los nuevos contactos como base
@@ -358,7 +400,16 @@ export const MessagesProvider = ({ children }) => {
 
   const selectConversation = useCallback((conversation) => {
     setSelectedConversation(conversation);
-  }, []);
+    
+    // Limpiar notificación cuando se selecciona una conversación
+    if (conversation && contactNotifications[conversation.id]) {
+      setContactNotifications(prev => {
+        const newNotifications = { ...prev };
+        delete newNotifications[conversation.id];
+        return newNotifications;
+      });
+    }
+  }, [contactNotifications]);
 
   /**
    * Actualiza los mensajes de una conversación con nuevos mensajes con polling
@@ -768,7 +819,9 @@ export const MessagesProvider = ({ children }) => {
     if (message.sender === 'human_agent') {
       console.log(`🔄 Mensaje de agente detectado, actualizando updated_at para ${conversationId}`);
       
-      const currentTimestamp = new Date().toISOString();
+      // Obtener el timestamp sin milisegundos
+      const currentTimestamp = new Date().toISOString().slice(0, -5) + 'Z';
+      console.log("DADU: Message current timestamp: ", currentTimestamp);
       
       setContacts(prev => {
         const updatedContacts = prev.map(contact => {
@@ -832,6 +885,7 @@ export const MessagesProvider = ({ children }) => {
     setActiveConversationId(null);
     setConversationModes({});
     setContacts([]); // Limpiar contactos también
+    setContactNotifications({}); // Limpiar notificaciones
     
     // Limpiar caché del servicio
     clearConversationsCache();
@@ -882,6 +936,7 @@ export const MessagesProvider = ({ children }) => {
     loadingMoreContacts,
     selectedConversation,
     probablyMoreContacts,
+    contactNotifications,
     // Acciones
     loadConversationMessages,
     setActiveConversation,
