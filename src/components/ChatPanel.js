@@ -554,6 +554,27 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     }
   };
 
+  // Función para detectar mensajes inválidos (fuera de dominio)
+  const isInvalidMessage = (messageText) => {
+    return messageText && messageText.startsWith('(FD) MENSAJE INVÁLIDO');
+  };
+
+  // Función para extraer el mensaje del lead de un mensaje inválido
+  const extractLeadMessage = (messageText) => {
+    if (!isInvalidMessage(messageText)) {
+      return messageText;
+    }
+    
+    // Buscar el patrón "(FD) Mensaje del lead: " y extraer lo que viene después
+    const leadMessageMatch = messageText.match(/\(FD\) Mensaje del lead:\s*(.+)/);
+    if (leadMessageMatch) {
+      return leadMessageMatch[1].trim();
+    }
+    
+    // Si no se encuentra el patrón específico, devolver el mensaje original
+    return messageText;
+  };
+
   const handleToggleMode = async () => {
     if (!selectedConversation || isLoading) return;
     
@@ -641,24 +662,30 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             </div>
           </div>
         ) : messages.length > 0 ? (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${
-                message.sender === 'bot' || message.sender === 'human_agent' 
-                  ? 'justify-end' 
-                  : 'justify-start'
-              }`}
-            >
+          messages.map((message) => {
+            const isInvalid = isInvalidMessage(message.text);
+            const leadMessage = extractLeadMessage(message.text);
+            
+            return (
               <div
-                className={`max-w-xs lg:max-w-md min-w-[200px] px-4 py-2 rounded-lg ${
-                  message.sender === 'bot'
-                    ? 'bg-blue-500 text-white'
-                    : message.sender === 'human_agent'
-                    ? 'bg-green-500 text-white'
-                    : 'bg-white text-gray-800 border border-gray-200'
+                key={message.id}
+                className={`flex ${
+                  message.sender === 'bot' || message.sender === 'human_agent' 
+                    ? 'justify-end' 
+                    : 'justify-start'
                 }`}
               >
+                <div
+                  className={`max-w-xs lg:max-w-md min-w-[200px] px-4 py-2 rounded-lg ${
+                    message.sender === 'bot'
+                      ? 'bg-blue-500 text-white'
+                      : message.sender === 'human_agent'
+                      ? 'bg-green-500 text-white'
+                      : isInvalid
+                      ? 'bg-red-50 text-gray-800 border border-red-200'
+                      : 'bg-white text-gray-800 border border-gray-200'
+                  }`}
+                >
                 {/* Mostrar reproductor de audio si el mensaje contiene multimedia de audio */}
                 {message.multimedia && message.multimedia.type === 'audio' ? (
                   <div className="space-y-2">
@@ -697,11 +724,18 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                   />
                 ) : (
                   /* Mostrar texto normal si no hay multimedia */
-                  <p className="text-sm">
-                    {message.sender === 'bot' && '🤖 '}
-                    {message.sender === 'human_agent' && '👤 '}
-                    {message.text}
-                  </p>
+                  <div className="space-y-1">
+                    {isInvalid && (
+                      <p className="text-xs text-red-600 font-medium">
+                        Mensaje fuera de dominio detectado:
+                      </p>
+                    )}
+                    <p className="text-sm">
+                      {message.sender === 'bot' && '🤖 '}
+                      {message.sender === 'human_agent' && '👤 '}
+                      {leadMessage}
+                    </p>
+                  </div>
                 )}
                 
                 <div className="flex items-center justify-between mt-1">
@@ -730,7 +764,8 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                 </div>
               </div>
             </div>
-          ))
+            );
+          })
         ) : selectedConversation ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-gray-500">
