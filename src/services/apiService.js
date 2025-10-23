@@ -135,7 +135,7 @@ export const getConversation = async (waId) => {
 };
 
 // Función para enviar mensaje del agente usando el endpoint real
-export const sendAgentMessage = async (waId, message, multimedia = null) => {
+export const sendAgentMessage = async (waId, message, multimedia = null, templateName = null) => {
   try {
     const endpoint = process.env.REACT_APP_SEND_AGENT_MESSAGE_ENDPOINT;
     
@@ -150,6 +150,10 @@ export const sendAgentMessage = async (waId, message, multimedia = null) => {
 
     if (multimedia) {
       body.multimedia = multimedia;
+    }
+
+    if (templateName) {
+      body.template_name = templateName;
     }
 
     const response = await fetch(endpoint, {

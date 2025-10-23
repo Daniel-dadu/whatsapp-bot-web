@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useMessages } from '../contexts/MessagesContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import { sendAgentMessage, uploadImageToFacebook, uploadAudioToFacebook, uploadDocumentToFacebook } from '../services/apiService';
@@ -37,9 +37,11 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   } = useMessages();
 
   // Obtener mensajes de la conversación actual
-  const messages = selectedConversation 
-    ? conversationMessages[selectedConversation.id] || []
-    : [];
+  const messages = useMemo(() => {
+    return selectedConversation 
+      ? conversationMessages[selectedConversation.id] || []
+      : [];
+  }, [selectedConversation, conversationMessages]);
   
   const isLoadingCurrentConversation = selectedConversation 
     ? loadingMessages[selectedConversation.id] || false
@@ -47,6 +49,62 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
 
   // Obtener el modo actual de la conversación
   const currentMode = selectedConversation ? getConversationMode(selectedConversation.id) : 'bot';
+  
+  // Estados para controlar el botón de continuación
+  const [showContinuationButton, setShowContinuationButton] = useState(false);
+  const [continuationButtonBlocked, setContinuationButtonBlocked] = useState(false);
+  const [lastHumanAgentMessageTime, setLastHumanAgentMessageTime] = useState(null);
+
+  // Función para verificar si han pasado 24 horas desde el último mensaje del lead
+  const shouldShowContinuationButton = useCallback(() => {
+    if (!selectedConversation || !messages || messages.length === 0) {
+      return false;
+    }
+    
+    // Buscar el último mensaje del lead (que no sea bot ni human_agent)
+    const leadMessages = messages.filter(message => 
+      message.sender !== 'bot' && message.sender !== 'human_agent'
+    );
+    
+    // Si no hay mensajes del lead, no mostrar el botón
+    if (leadMessages.length === 0) {
+      return false;
+    }
+    
+    // Obtener el último mensaje del lead
+    const lastLeadMessage = leadMessages[leadMessages.length - 1];
+
+    console.log('🔄 ChatPanel: Último mensaje del lead:', lastLeadMessage);
+    
+    // Si tiene messageDate, usar esa fecha; si no, usar el timestamp como hora de hoy
+    let messageDate = new Date(lastLeadMessage.originalTimestamp);
+    
+    const now = new Date();
+    
+    // Calcular la diferencia en horas
+    const hoursDifference = (now - messageDate) / (1000 * 60 * 60);
+  
+
+    console.log('🔄 ChatPanel: Han pasado 24 horas o más desde el último mensaje del lead:', hoursDifference >= 24);
+    
+    // Mostrar el botón si:
+    // 1. Han pasado 24 horas o más desde el último mensaje del lead Y
+    return hoursDifference >= 24;
+  }, [selectedConversation, messages]);
+
+  // Función para verificar si el botón debe estar bloqueado
+  const shouldBlockContinuationButton = useCallback(() => {
+    if (!lastHumanAgentMessageTime) {
+      return false;
+    }
+
+    const now = new Date();
+    const messageTime = new Date(lastHumanAgentMessageTime);
+    const hoursDifference = (now - messageTime) / (1000 * 60 * 60);
+
+    // Bloquear por 1 hora después del último mensaje del agente humano
+    return hoursDifference < 1;
+  }, [lastHumanAgentMessageTime]);
   
   // Cargar mensajes cuando cambia la conversación seleccionada
   useEffect(() => {
@@ -61,7 +119,48 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   // eslint-disable-next-line
   }, [selectedConversation?.id]); // Remover setActiveConversation de las dependencias
   
-  // Este useEffect ya no es necesario porque la inicialización se hace en setActiveConversation
+  // Verificar si se debe mostrar el botón de continuación cuando cambian los mensajes o la conversación
+  useEffect(() => {
+    if (selectedConversation && !isLoadingCurrentConversation) {
+      const shouldShow = shouldShowContinuationButton();
+      const isBlocked = shouldBlockContinuationButton();
+      
+      setShowContinuationButton(shouldShow);
+      
+      if (shouldShow) {
+        // Si debe mostrar el botón, verificar si está bloqueado
+        setContinuationButtonBlocked(isBlocked);
+        
+        if (isBlocked) {
+          console.log(`🔄 Botón "Solicitar continuación" bloqueado por timeout de 1 hora para conversación ${selectedConversation.id}`);
+        } else {
+          console.log(`🔄 Botón "Solicitar continuación" disponible para conversación ${selectedConversation.id}`);
+        }
+      } else {
+        // No mostrar el botón si no han pasado 24 horas o si el lead respondió
+        setContinuationButtonBlocked(false);
+        console.log(`🔄 Botón "Solicitar continuación" oculto - lead respondió o no han pasado 24 horas para conversación ${selectedConversation.id}`);
+      }
+    } else {
+      setShowContinuationButton(false);
+      setContinuationButtonBlocked(false);
+    }
+  }, [selectedConversation, isLoadingCurrentConversation, shouldShowContinuationButton, shouldBlockContinuationButton]);
+
+  // Detectar cuando se envía un mensaje del agente humano para actualizar el timestamp
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      // Buscar el último mensaje del agente humano
+      const humanAgentMessages = messages.filter(message => message.sender === 'human_agent');
+      
+      if (humanAgentMessages.length > 0) {
+        const lastHumanMessage = humanAgentMessages[humanAgentMessages.length - 1];
+        if (lastHumanMessage.originalTimestamp) {
+          setLastHumanAgentMessageTime(lastHumanMessage.originalTimestamp);
+        }
+      }
+    }
+  }, [messages]);
 
   // Función para hacer scroll automático al final de los mensajes
   const scrollToBottom = () => {
@@ -606,6 +705,61 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
     }
   };
 
+  // Función para manejar el clic del botón "Solicitar continuación"
+  const handleRequestContinuation = async () => {
+    if (!selectedConversation || isLoading) return;
+    
+    console.log(`🔄 Botón "Solicitar continuación" activado para conversación ${selectedConversation.id}`);
+    
+    const waId = selectedConversation.id.replace('conv_', '');
+    setIsLoading(true);
+    
+    try {
+      console.log('📤 Enviando solicitud de continuación con template...');
+      
+      // Enviar mensaje vacío con template_name
+      const result = await sendAgentMessage(waId, '', null, 'seguimiento_conversacion');
+      
+      if (result.success) {
+        console.log('✅ Solicitud de continuación enviada exitosamente:', result.data);
+        
+        // Crear mensaje con datos reales del backend
+        const newMessage = {
+          id: result.data.message_id_sent,
+          sender: 'human_agent',
+          text: result.data.message,
+          timestamp: new Date(result.data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          messageDate: new Date(result.data.timestamp).toLocaleDateString(),
+          delivered: true,
+          read: true,
+          originalTimestamp: result.data.timestamp
+        };
+        
+        // Agregar mensaje a la conversación
+        addMessageToConversation(selectedConversation.id, newMessage);
+        
+        // Actualizar el timestamp del último mensaje del agente humano
+        setLastHumanAgentMessageTime(result.data.timestamp);
+        
+        // Bloquear el botón por 1 hora
+        setContinuationButtonBlocked(true);
+        
+        // Marcar actividad del usuario para reiniciar timeout
+        markUserActivity();
+        
+        console.log('🔄 Botón bloqueado por 1 hora desde:', result.data.timestamp);
+      } else {
+        console.error('❌ Error al enviar solicitud de continuación:', result.error);
+        alert('Error al enviar la solicitud de continuación: ' + result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error inesperado al enviar solicitud de continuación:', error);
+      alert('Error inesperado al enviar la solicitud de continuación');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!selectedConversation) {
     return (
       <div className="h-full bg-gray-50 flex items-center justify-center">
@@ -944,7 +1098,49 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
 
       {/* Message input */}
       <div className="p-4 border-t border-gray-200 bg-white">
-        <form onSubmit={handleSendMessage} className="flex space-x-2">
+        {showContinuationButton ? (
+          /* Botón de solicitar continuación */
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={handleRequestContinuation}
+              disabled={continuationButtonBlocked || isLoading}
+              className={`px-6 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors font-medium ${
+                continuationButtonBlocked || isLoading
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  : 'bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Enviando...</span>
+                  </>
+                ) : continuationButtonBlocked ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Solicitud enviada - Esperando respuesta</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Solicitar continuación</span>
+                  </>
+                )}
+              </div>
+            </button>
+          </div>
+        ) : (
+          /* Formulario normal de mensaje */
+          <form onSubmit={handleSendMessage} className="flex space-x-2">
           {/* Botón de cambio de modo */}
           <button
             type="button"
@@ -1104,6 +1300,7 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             </svg>
           </button>
         </form>
+        )}
       </div>
 
       {/* Audio Recorder Modal */}
