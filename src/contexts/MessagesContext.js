@@ -103,7 +103,14 @@ export const MessagesProvider = ({ children }) => {
               console.log("DADU: Updated contact: ", newContact.id);
               console.log("DADU: Current contact updated_at: ", currentContact.originalData?.updated_at);
               console.log("DADU: New contact updated_at: ", newContact.originalData?.updated_at);
-              updatedContacts.push(newContact.id);
+
+              // Solo agregar el contacto a la lista de contactos actualizados si la diferencia entre el updated_at del contacto actual y el nuevo es mayor a 2 segundos
+              // Los contactos con updated_at menor a 2 segundos son mensajes de un agente humano, no se deben mostrar notificaciones
+              if (Math.abs(new Date(newContact.originalData?.updated_at) - new Date(currentContact.originalData?.updated_at)) > 2000) {
+                updatedContacts.push(newContact.id);
+              } else {
+                console.log("DADU: Contacto con updated_at menor a 2 segundos, no se debe mostrar notificación");
+              }
             }
           });
           
