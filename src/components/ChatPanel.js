@@ -21,6 +21,7 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [showFileUploadPopover, setShowFileUploadPopover] = useState(false);
+  const [isUltraSmall, setIsUltraSmall] = useState(false); // < 380px
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const audioFileInputRef = useRef(null);
@@ -190,6 +191,14 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showFileUploadPopover]);
+
+  // Detectar pantallas muy pequeñas (< 380px)
+  useEffect(() => {
+    const updateMedia = () => setIsUltraSmall(window.innerWidth < 380);
+    updateMedia();
+    window.addEventListener('resize', updateMedia);
+    return () => window.removeEventListener('resize', updateMedia);
+  }, []);
 
   // Función para validar archivo de imagen
   const validateImageFile = (file) => {
@@ -1141,52 +1150,169 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
         ) : (
           /* Formulario normal de mensaje */
           <form onSubmit={handleSendMessage} className="flex space-x-2">
-          {/* Botón de cambio de modo */}
-          <button
-            type="button"
-            onClick={handleToggleMode}
-            disabled={isLoading || currentMode === 'agente'}
-            className={`flex items-center space-x-1 px-3 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              currentMode === 'agente'
-              ? 'bg-gray-400 text-white cursor-not-allowed'
-              : 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500'
-            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            title={currentMode === 'agente' ? 'Modo humano activo - No se puede cambiar a bot' : 'Cambiar a modo humano'}
-          >
-            <span className="text-base">
-              {currentMode === 'agente' ? '👤' : '🤖'}
-            </span>
-            <span className="hidden sm:inline">
-              {currentMode === 'agente' ? 'Humano' : 'Bot'}
-            </span>
-          </button>
+          {/* Botones en pantallas normales */}
+          {!isUltraSmall && (
+            <>
+              {/* Botón de cambio de modo */}
+              <button
+                type="button"
+                onClick={handleToggleMode}
+                disabled={isLoading || currentMode === 'agente'}
+                className={`flex items-center space-x-1 px-3 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                  currentMode === 'agente'
+                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                  : 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500'
+                } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={currentMode === 'agente' ? 'Modo humano activo - No se puede cambiar a bot' : 'Cambiar a modo humano'}
+              >
+                <span className="text-base">
+                  {currentMode === 'agente' ? '👤' : '🤖'}
+                </span>
+                <span className="hidden sm:inline">
+                  {currentMode === 'agente' ? 'Humano' : 'Bot'}
+                </span>
+              </button>
 
-          {/* Botón de subir archivos - solo visible en modo agente */}
-          {currentMode === 'agente' && (
+              {/* Botón de subir archivos - solo visible en modo agente */}
+              {currentMode === 'agente' && (
+                <div className="relative" ref={fileUploadPopoverRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowFileUploadPopover(!showFileUploadPopover)}
+                    disabled={isLoading || isUploadingImage || isUploadingAudio || isUploadingDocument}
+                    className="bg-gray-600 text-white p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Subir archivos"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </button>
+
+                  {/* Popover con opciones de archivo */}
+                  {showFileUploadPopover && (
+                    <div className="absolute bottom-full mb-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 space-y-1 z-50 min-w-[140px]">
+                      {/* Botón de subir imagen */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fileInputRef.current?.click();
+                          setShowFileUploadPopover(false);
+                        }}
+                        disabled={isLoading || isUploadingImage}
+                        className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Subir imagen"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>Imagen</span>
+                      </button>
+
+                      {/* Botón de subir archivo de audio */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audioFileInputRef.current?.click();
+                          setShowFileUploadPopover(false);
+                        }}
+                        disabled={isLoading || isUploadingAudio}
+                        className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Subir archivo de audio"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                        <span>Audio</span>
+                      </button>
+
+                      {/* Botón de subir documento */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          documentInputRef.current?.click();
+                          setShowFileUploadPopover(false);
+                        }}
+                        disabled={isLoading || isUploadingDocument}
+                        className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Subir documento"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 3h8a2 2 0 012 2v4h-3a2 2 0 00-2 2v3H7a2 2 0 01-2-2V5a2 2 0 012-2zm5 10l4 4m0 0l4-4m-4 4V9" />
+                        </svg>
+                        <span>Documento</span>
+                      </button>
+
+                      {/* Botón de grabar audio */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAudioRecorder(true);
+                          setShowFileUploadPopover(false);
+                        }}
+                        disabled={false}
+                        className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-md transition-colors"
+                        title="Grabar audio"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                        <span>Grabar Audio</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Menú único en pantallas ultra pequeñas (<380px) */}
+          {isUltraSmall && (
             <div className="relative" ref={fileUploadPopoverRef}>
               <button
                 type="button"
                 onClick={() => setShowFileUploadPopover(!showFileUploadPopover)}
                 disabled={isLoading || isUploadingImage || isUploadingAudio || isUploadingDocument}
-                className="bg-gray-600 text-white p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Subir archivos"
+                className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Opciones"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 22a2 2 0 110-4 2 2 0 010 4z" />
                 </svg>
               </button>
 
-              {/* Popover con opciones de archivo */}
               {showFileUploadPopover && (
-                <div className="absolute bottom-full mb-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 space-y-1 z-50 min-w-[120px]">
-                  {/* Botón de subir imagen */}
+                <div className="absolute bottom-full mb-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 space-y-1 z-50 min-w-[160px]">
+                  {/* Cambiar modo (solo permitido de bot -> humano) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (currentMode !== 'agente') {
+                        handleToggleMode();
+                      }
+                      setShowFileUploadPopover(false);
+                    }}
+                    disabled={isLoading || currentMode === 'agente'}
+                    className={`w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors ${
+                      currentMode === 'agente'
+                        ? 'text-gray-400 cursor-not-allowed bg-gray-50'
+                        : 'text-green-700 hover:bg-green-50 hover:text-green-800'
+                    } ${isLoading ? 'opacity-50' : ''}`}
+                    title={currentMode === 'agente' ? 'Modo humano activo - No se puede cambiar a bot' : 'Cambiar a modo humano'}
+                  >
+                    <span className="text-base">{currentMode === 'agente' ? '👤' : '🤖'}</span>
+                    <span>{currentMode === 'agente' ? 'Humano activo' : 'Cambiar a humano'}</span>
+                  </button>
+
+                  <div className="my-1 h-px bg-gray-200" />
+
+                  {/* Media options (deshabilitadas si no está en modo agente) */}
                   <button
                     type="button"
                     onClick={() => {
                       fileInputRef.current?.click();
                       setShowFileUploadPopover(false);
                     }}
-                    disabled={isLoading || isUploadingImage}
+                    disabled={isLoading || isUploadingImage || currentMode !== 'agente'}
                     className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Subir imagen"
                   >
@@ -1196,14 +1322,13 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                     <span>Imagen</span>
                   </button>
 
-                  {/* Botón de subir archivo de audio */}
                   <button
                     type="button"
                     onClick={() => {
                       audioFileInputRef.current?.click();
                       setShowFileUploadPopover(false);
                     }}
-                    disabled={isLoading || isUploadingAudio}
+                    disabled={isLoading || isUploadingAudio || currentMode !== 'agente'}
                     className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Subir archivo de audio"
                   >
@@ -1213,14 +1338,13 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                     <span>Audio</span>
                   </button>
 
-                  {/* Botón de subir documento */}
                   <button
                     type="button"
                     onClick={() => {
                       documentInputRef.current?.click();
                       setShowFileUploadPopover(false);
                     }}
-                    disabled={isLoading || isUploadingDocument}
+                    disabled={isLoading || isUploadingDocument || currentMode !== 'agente'}
                     className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Subir documento"
                   >
@@ -1230,15 +1354,14 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
                     <span>Documento</span>
                   </button>
 
-                  {/* Botón de grabar audio */}
                   <button
                     type="button"
                     onClick={() => {
                       setShowAudioRecorder(true);
                       setShowFileUploadPopover(false);
                     }}
-                    disabled={false}
-                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-md transition-colors"
+                    disabled={currentMode !== 'agente'}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Grabar audio"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
