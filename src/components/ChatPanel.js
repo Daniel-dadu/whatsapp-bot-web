@@ -22,11 +22,13 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [showFileUploadPopover, setShowFileUploadPopover] = useState(false);
   const [isUltraSmall, setIsUltraSmall] = useState(false); // < 380px
+  const [showLeadInfoPopover, setShowLeadInfoPopover] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const audioFileInputRef = useRef(null);
   const documentInputRef = useRef(null);
   const fileUploadPopoverRef = useRef(null);
+  const leadInfoPopoverRef = useRef(null);
   const { 
     conversationMessages, 
     loadingMessages, 
@@ -181,16 +183,19 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
       if (fileUploadPopoverRef.current && !fileUploadPopoverRef.current.contains(event.target)) {
         setShowFileUploadPopover(false);
       }
+      if (leadInfoPopoverRef.current && !leadInfoPopoverRef.current.contains(event.target)) {
+        setShowLeadInfoPopover(false);
+      }
     };
 
-    if (showFileUploadPopover) {
+    if (showFileUploadPopover || showLeadInfoPopover) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showFileUploadPopover]);
+  }, [showFileUploadPopover, showLeadInfoPopover]);
 
   // Detectar pantallas muy pequeñas (< 380px)
   useEffect(() => {
@@ -813,6 +818,102 @@ const ChatPanel = ({ selectedConversation, onBackToList, showBackButton }) => {
             </p>
           </div>
         </div>
+        
+        {/* Botón de información del lead */}
+        {selectedConversation.leadInfo && (
+          <div className="relative" ref={leadInfoPopoverRef}>
+            <button
+              type="button"
+              onClick={() => setShowLeadInfoPopover(!showLeadInfoPopover)}
+              onMouseEnter={() => setShowLeadInfoPopover(true)}
+              className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+              title="Información del lead"
+            >
+              <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            
+            {/* Popover con información del lead */}
+            {showLeadInfoPopover && (
+            <div 
+              className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white border border-gray-200 rounded-lg shadow-xl p-4 z-50 max-h-96 overflow-y-auto"
+              onMouseLeave={() => setShowLeadInfoPopover(false)}
+            >
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200">
+                Información del Lead
+              </h3>
+              <div className="space-y-2">
+                {selectedConversation.leadInfo.nombre && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Nombre</p>
+                    <p className="text-sm text-gray-900">{selectedConversation.leadInfo.nombre}</p>
+                  </div>
+                )}
+                {selectedConversation.leadInfo.telefono && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Teléfono</p>
+                    <p className="text-sm text-gray-900">{formatPhoneNumber(selectedConversation.leadInfo.telefono)}</p>
+                  </div>
+                )}
+                {selectedConversation.leadInfo.tipo_maquinaria && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Tipo de Maquinaria</p>
+                    <p className="text-sm text-gray-900">{selectedConversation.leadInfo.tipo_maquinaria}</p>
+                  </div>
+                )}
+                {selectedConversation.leadInfo.lugar_requerimiento && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Lugar de Requerimiento</p>
+                    <p className="text-sm text-gray-900">{selectedConversation.leadInfo.lugar_requerimiento}</p>
+                  </div>
+                )}
+                {selectedConversation.leadInfo.sitio_web && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Sitio Web</p>
+                    <p className="text-sm text-gray-900">{selectedConversation.leadInfo.sitio_web}</p>
+                  </div>
+                )}
+                {selectedConversation.leadInfo.uso_empresa_o_venta && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Uso Empresa o Venta</p>
+                    <p className="text-sm text-gray-900">{selectedConversation.leadInfo.uso_empresa_o_venta}</p>
+                  </div>
+                )}
+                {selectedConversation.leadInfo.nombre_empresa && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Nombre de Empresa</p>
+                    <p className="text-sm text-gray-900">{selectedConversation.leadInfo.nombre_empresa}</p>
+                  </div>
+                )}
+                {selectedConversation.leadInfo.giro_empresa && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Giro de Empresa</p>
+                    <p className="text-sm text-gray-900">{selectedConversation.leadInfo.giro_empresa}</p>
+                  </div>
+                )}
+                {selectedConversation.leadInfo.correo && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Correo</p>
+                    <p className="text-sm text-gray-900">{selectedConversation.leadInfo.correo}</p>
+                  </div>
+                )}
+                {!selectedConversation.leadInfo.nombre && 
+                 !selectedConversation.leadInfo.telefono && 
+                 !selectedConversation.leadInfo.tipo_maquinaria &&
+                 !selectedConversation.leadInfo.lugar_requerimiento &&
+                 !selectedConversation.leadInfo.sitio_web &&
+                 !selectedConversation.leadInfo.uso_empresa_o_venta &&
+                 !selectedConversation.leadInfo.nombre_empresa &&
+                 !selectedConversation.leadInfo.giro_empresa &&
+                 !selectedConversation.leadInfo.correo && (
+                  <p className="text-sm text-gray-500 italic">No hay información disponible</p>
+                )}
+              </div>
+            </div>
+            )}
+          </div>
+        )}
       </div>
       
       {/* Messages area */}
